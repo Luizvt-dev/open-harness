@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true,
+    "paths": {
+      "@open-harness/cosmokit": ["./packages/kernel/cosmokit/src/index.ts"],
+      "@open-harness/schemastery": ["./packages/kernel/schemastery/src/index.ts"],
+      "@open-harness/cordis-plugin-loader": ["./packages/kernel/cordis-plugin-loader/src/index.ts"],
+      "@open-harness/cordis": ["./packages/kernel/cordis/src/index.ts"],
+      "@open-harness/home-paths": ["./packages/boot/home-paths/src/index.ts"],
+      "@open-harness/profile-boot": ["./packages/boot/profile-boot/src/index.ts"],
+      "@open-harness/app-boot": ["./packages/boot/app-boot/src/index.ts"],
+      "@open-harness/hmr": ["./packages/boot/hmr/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/test/**/*.ts", "vitest.config.ts"]
+}

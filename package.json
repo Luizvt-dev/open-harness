@@ -1,0 +1,26 @@
+{
+  "name": "open-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Open Harness (dsh) — recriação: kernel de plugins + composição declarativa",
+  "license": "MIT",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "build:clean": "tsc -b --clean",
+    "typecheck": "tsc -b",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm typecheck:tests && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

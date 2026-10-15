@@ -1,0 +1,26 @@
+{
+  "name": "@open-harness/profile-boot",
+  "version": "0.1.0",
+  "description": "Perfis = camadas de patch YAML (bundle → perfil → home → overlays) com último-por-id vence e expressões !!js",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/cosmokit": "workspace:*",
+    "@open-harness/cordis-plugin-loader": "workspace:*",
+    "@open-harness/home-paths": "workspace:*",
+    "@open-harness/schemastery": "workspace:*",
+    "yaml": "^2.8.1"
+  }
+}

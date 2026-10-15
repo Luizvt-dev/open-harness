@@ -1,0 +1,22 @@
+{
+  "name": "@open-harness/schemastery",
+  "version": "0.1.0",
+  "description": "Validação de esquemas tipados (object/string/number/boolean/array/record/union + optional/default)",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/cosmokit": "workspace:*"
+  }
+}

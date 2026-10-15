@@ -1,0 +1,24 @@
+{
+  "name": "@open-harness/app-boot",
+  "version": "0.1.0",
+  "description": "Boot da aplicação: compõe o perfil, carrega o loader, reporta bundles saltados e aplica a política required/optional",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/cordis": "workspace:*",
+    "@open-harness/cordis-plugin-loader": "workspace:*",
+    "@open-harness/profile-boot": "workspace:*"
+  }
+}

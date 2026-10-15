@@ -1,0 +1,22 @@
+{
+  "name": "@open-harness/hmr",
+  "version": "0.1.0",
+  "description": "Reload serializado + watch de manifests/patches (alterar cordis.patch.yml sem reiniciar)",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/cosmokit": "workspace:*"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../home-paths" },
+    { "path": "../../kernel/cosmokit" },
+    { "path": "../../kernel/schemastery" },
+    { "path": "../../kernel/cordis-plugin-loader" }
+  ]
+}

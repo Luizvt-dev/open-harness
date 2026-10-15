@@ -1,0 +1,19 @@
+{
+  "name": "@open-harness/home-paths",
+  "version": "0.1.0",
+  "description": "Resolução do home de dados ($OPEN_HARNESS_HOME | ~/.open-harness) e subcaminhos canónicos",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

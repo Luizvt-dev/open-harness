@@ -1,0 +1,22 @@
+{
+  "name": "@open-harness/cordis",
+  "version": "0.1.0",
+  "description": "Kernel de DI/plugins: serviços, injecção activada por disponibilidade, fibras, efeitos, on/emit/waterfall, dispose",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/cosmokit": "workspace:*"
+  }
+}
