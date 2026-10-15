@@ -75,7 +75,7 @@ export function bashTool(options: BashToolOptions = {}): ToolDefinition {
           if (stdout) parts.push(clip(stdout))
           if (stderr) parts.push(`[stderr]\n${clip(stderr)}`)
           if (killed) parts.push(`[killed: timeout ${timeout} ms]`)
-          resolve({ content: parts.join('\n') || '(no output)', isError })
+          resolve({ content: parts.join('\n') || '(no output)', isError: isError || killed })
         }
 
         child.on('error', (error) => {
@@ -83,9 +83,10 @@ export function bashTool(options: BashToolOptions = {}): ToolDefinition {
           finish(true)
         })
         child.on('close', (code) => {
-          if (killed) return finish(true)
-          if (code !== 0 && stderr) return finish(true)
-          resolve({ content: clip(stdout) || '(no output)', isError: code !== 0 })
+          // Um comando pode escrever em stderr e ainda assim terminar bem
+          // (ex.: `echo oops 1>&2`) — o stderr é devolvido sempre, com o
+          // prefixo `[stderr]`, e o `isError` reflecte apenas o código de saída.
+          finish(code !== 0)
         })
       })
     },
