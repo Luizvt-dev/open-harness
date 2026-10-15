@@ -19,7 +19,8 @@ export type { AgentService as Agent }
  *
  * Permite ao arranque (CLI, testes) injectar um transporte sem depender de
  * configuração YAML: cria-se `ctx.set(LLM_ADAPTER_SERVICE, adapter)` **antes**
- * do `bootApp`, e o plugin do agente usa-o em vez de criar o `DeepSeekAdapter`.
+ * do `bootApp`, e o plugin do agente usa-o em vez de resolver um adapter no
+ * registry de provedores.
  */
 export const LLM_ADAPTER_SERVICE = 'llm-adapter'
 
@@ -32,7 +33,8 @@ export const TOOLS_SERVICE = 'tools'
  * - `tools?` (opcional): se outro plugin já registou um `ToolRegistry`, as
  *   tools são herdadas; senão fica vazio (o bundle headless acrescenta as suas).
  * - `llm-adapter?` (opcional): transporte LLM injectado pelo arranque; sem ele
- *   usa-se `DeepSeekAdapter` com a chave de API da configuração/env.
+ *   resolve-se o adapter pelo registry de provedores (`providers` + catálogo
+ *   embutido) usando `model` como referência `provedor/modelo`.
  *
  * A criação do serviço é **lazily** (na primeira chamada a `get('agent')` ou
  * a um dos seus membros), para que a ausência de API key não rebente no boot —
@@ -75,6 +77,15 @@ export const plugin = {
       },
       get loop() {
         return ensure().loop
+      },
+      get registry() {
+        return ensure().registry
+      },
+      get modelRef() {
+        return ensure().modelRef
+      },
+      get model() {
+        return ensure().model
       },
       get sessionPath() {
         return ensure().sessionPath

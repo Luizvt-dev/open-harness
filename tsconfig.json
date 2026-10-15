@@ -11,6 +11,7 @@
     { "path": "packages/boot/hmr" },
     { "path": "packages/llm/dsh-llm" },
     { "path": "packages/llm/dsh-llm-deepseek" },
+    { "path": "packages/llm/dsh-provider" },
     { "path": "packages/session/dsh-session-format" },
     { "path": "packages/session/dsh-session" },
     { "path": "packages/session/dsh-session-persistence-jsonl" },

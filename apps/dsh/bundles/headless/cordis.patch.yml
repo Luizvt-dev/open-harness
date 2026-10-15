@@ -11,6 +11,11 @@
 
 # Plugin cordis que publica o serviço `agent` (criação *lazily*: a API key só
 # é validada quando alguém primeiro usa o agente).
+#
+# `model` aceita `provedor/modelo` (ex.: `openai/gpt-5.4`) ou só o id — nesse
+# caso usa-se o provedor default (`deepseek`). Outros provedores declaram-se em
+# `providers:` (chave, endpoint, protocolo e catálogo de modelos); ver
+# `dsh models` para a lista disponível.
 agent:
   plugin: '@open-harness/dsh-agent'
   config:

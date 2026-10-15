@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify } from 'yaml'
-import { defaultProfileDir } from '@open-harness/profile-boot'
+import { composeProfile, defaultProfileDir } from '@open-harness/profile-boot'
 
 /** Nome do perfil headless embutido na CLI. */
 export const HEADLESS_PROFILE = 'headless'
@@ -80,6 +80,20 @@ export function ensureProfile(options: EnsureProfileOptions): ProfileHandle {
   return { profileDir, existed }
 }
 
+/**
+ * Lê a configuração composta da linha `agent` (bundles → perfil → home),
+ * **sem** overlay e sem arrancar o agente.
+ *
+ * Usada para duas coisas: transportar a herança do perfil (em particular
+ * `providers`) para o overlay de runtime, e alimentar `dsh models` sem exigir
+ * API key — o que exigiria criar o serviço `agent`.
+ */
+export function readAgentConfig(profileDir: string, homeDir: string): Record<string, unknown> {
+  const composed = composeProfile({ profileDir, homeDir })
+  const row = composed.rows.find((candidate) => candidate.id === 'agent')
+  return { ...((row?.config ?? {}) as Record<string, unknown>) }
+}
+
 /** Sobrescritas de configuração vindas da linha de comandos. */
 export interface RuntimeOverrides {
   model?: string
@@ -97,11 +111,20 @@ export interface RuntimeOverrides {
  * `requireDir` da linha continua a ser o do bundle que declarou o `plugin`,
  * essencial para o `@open-harness/dsh-agent` resolver no `node_modules` da app.
  *
+ * Como o `config` é substituído **por inteiro** pela camada mais alta, o
+ * overlay recebe também a herança do perfil (`base`, lida por
+ * `readAgentConfig`). Sem isso, `--model` sozinho apagaria o `system` do
+ * bundle e os `providers` declarados pelo utilizador.
+ *
  * Devolve o caminho do overlay escrito (há sempre `homeDir` a sobrepor, para
  * que `--home` chegue ao serviço do agente).
  */
-export function writeRuntimeOverlay(homeDir: string, overrides: RuntimeOverrides): string {
-  const config: Record<string, unknown> = { homeDir: resolve(homeDir) }
+export function writeRuntimeOverlay(
+  homeDir: string,
+  overrides: RuntimeOverrides,
+  base: Record<string, unknown> = {},
+): string {
+  const config: Record<string, unknown> = { ...base, homeDir: resolve(homeDir) }
   if (overrides.model !== undefined) config.model = overrides.model
   if (overrides.system !== undefined) config.system = overrides.system
   if (overrides.cwd !== undefined) config.cwd = resolve(overrides.cwd)
@@ -112,7 +135,9 @@ export function writeRuntimeOverlay(homeDir: string, overrides: RuntimeOverrides
   writeFileSync(
     target,
     `# Gerado pela CLI \`dsh\` a cada execução (--home/--model/--system/--cwd).\n` +
-      `# Camada de overlay: sobrescreve o \`config\` da linha \`agent\` por inteiro.\n${doc}`,
+      `# Camada de overlay: sobrescreve o \`config\` da linha \`agent\` por inteiro,\n` +
+      `# por isso inclui a herança do perfil (system/providers/model) antes das\n` +
+      `# sobrescritas da linha de comandos.\n${doc}`,
     'utf8',
   )
   return target

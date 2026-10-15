@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { ProviderRegistry } from '@open-harness/dsh-provider'
 import { HEADLESS_PROFILE, cliPackageRoot } from './profile.js'
-import { runPrompt, type RunResult } from './run.js'
+import { loadAgentRegistry, runPrompt, type RunResult } from './run.js'
 import { ScriptedAdapter, scriptedText, scriptedWrite } from './scripted.js'
 
 // ---------------------------------------------------------------------------
@@ -35,9 +36,12 @@ export interface CliArgs {
   system?: string
   cwd?: string
   home?: string
+  provider?: string
   offline: boolean
   verbose: boolean
   printSession: boolean
+  /** `dsh models` / `--models`: lista provedores e modelos e sai. */
+  models: boolean
   help: boolean
   version: boolean
 }
@@ -48,6 +52,7 @@ const DEFAULT_ARGS: CliArgs = {
   offline: false,
   verbose: false,
   printSession: false,
+  models: false,
   help: false,
   version: false,
 }
@@ -63,6 +68,7 @@ const VALUE_FLAGS: Record<string, keyof CliArgs> = {
   '--cwd': 'cwd',
   '-C': 'cwd',
   '--home': 'home',
+  '--provider': 'provider',
 }
 
 /**
@@ -116,11 +122,21 @@ export function parseArgs(argv: readonly string[]): CliArgs {
       case '--print-session':
         args.printSession = true
         continue
+      case '--models':
+        args.models = true
+        continue
       default:
         break
     }
 
     if (token.startsWith('-') && token !== '-') throw new UsageError(`unknown option: ${token}`)
+    // Subcomando de listagem: `dsh models` equivale a `dsh --models`.
+    // (Depois de `--` o token fica prompt — `dsh -- models ...` escreve mesmo
+    // "models" ao modelo.)
+    if (token === 'models' && positional.length === 0 && !args.models) {
+      args.models = true
+      continue
+    }
     positional.push(token)
   }
 
@@ -136,10 +152,17 @@ export const HELP = `dsh — Open Harness (recriação)
 
 Uso:
   dsh [opções] <prompt>
+  dsh models [opções]
+
+Comandos:
+  (nenhum)          Corre um turno com o prompt indicado
+  models            Lista os provedores ligados e os modelos disponíveis
 
 Opções:
   -p, --profile <nome>   Perfil a arrancar (default: ${HEADLESS_PROFILE})
-  -m, --model <id>       Modelo a usar (default: o do perfil)
+  -m, --model <ref>      Modelo a usar: <provedor>/<modelo> (ex.: openai/gpt-5.4)
+                         (default: o do perfil)
+      --provider <id>    Com \`models\`: mostra só esse provedor
   -s, --system <texto>   Substitui o system prompt
   -C, --cwd <dir>        Directorio de trabalho do agente (default: o cwd)
       --home <dir>       Home de dados (default: ~/.open-harness)
@@ -150,10 +173,18 @@ Opções:
   -h, --help             Esta ajuda
       --version          Versão da CLI
 
+Provedores:
+  Os provedores são declarados no perfil, no bloco \`agent.config.providers\`
+  (chave, endpoint, protocolo e catálogo de modelos). O catálogo embutido já
+  conhece deepseek, anthropic, openai, google, openrouter, groq e ollama; as
+  chaves vêm do ambiente (DEEPSEEK_API_KEY, OPENAI_API_KEY, …).
+
 Exemplos:
   dsh --profile headless "crie um README"
   dsh --offline -v "crie um README"
-  dsh --profile headless --model deepseek-v4-pro "explique este repositório"
+  dsh --model openai/gpt-5.4 "explique este repositório"
+  dsh models
+  dsh models --provider openrouter
 
 Sessão: <home>/sessions/<workspace>/<id>/session.v4.jsonl.zstd
 Home:   OPEN_HARNESS_HOME (ou OHSH_HOME), por omissão ~/.open-harness
@@ -217,6 +248,68 @@ export interface RunCliOptions {
   signal?: AbortSignal
 }
 
+function padCell(value: string, width: number): string {
+  return value.length >= width ? `${value} ` : value.padEnd(width)
+}
+
+/** Estado da chave de um provedor, para a listagem. */
+function keyState(provider: { hasApiKey: boolean; requiresApiKey: boolean }): string {
+  if (!provider.requiresApiKey) return 'local'
+  return provider.hasApiKey ? 'ok' : 'falta'
+}
+
+/**
+ * Formata a listagem de provedores e modelos (`dsh models`) — o equivalente à
+ * ferramenta `models` do OpenCode, para descobrir o que está ligado antes de
+ * escolher uma referência `provedor/modelo`.
+ */
+export function formatModelListing(
+  registry: ProviderRegistry,
+  filter: { profile?: string; provider?: string } = {},
+): string[] {
+  const providers = registry
+    .listProviders()
+    .filter((provider) => !filter.provider || provider.id === filter.provider)
+  const models = registry.listModels(filter.provider ? { provider: filter.provider } : {})
+
+  const lines: string[] = []
+  if (filter.profile) lines.push(`perfil    ${filter.profile}`)
+  lines.push('')
+  lines.push('PROVEDORES  (* = catálogo embutido)')
+  lines.push(
+    padCell('ID', 16) + padCell('PROTOCOLO', 20) + padCell('CHAVE', 8) + padCell('MODELOS', 9) + 'ENDPOINT',
+  )
+  for (const provider of providers) {
+    lines.push(
+      padCell(`${provider.id}${provider.builtin ? ' *' : ''}`, 16) +
+        padCell(provider.api, 20) +
+        padCell(keyState(provider), 8) +
+        padCell(String(provider.modelCount), 9) +
+        provider.baseURL,
+    )
+  }
+
+  lines.push('')
+  lines.push('MODELOS  (usar como --model <ref>)')
+  lines.push(
+    padCell('REF', 40) + padCell('CONTEXTO', 12) + padCell('SAÍDA', 10) + padCell('TOOLS', 7) + 'CUSTO in/out (USD/M)',
+  )
+  for (const model of models) {
+    const cost =
+      model.cost?.input !== undefined && model.cost?.output !== undefined
+        ? `${model.cost.input} / ${model.cost.output}`
+        : '-'
+    lines.push(
+      padCell(model.ref, 40) +
+        padCell(String(model.contextWindow), 12) +
+        padCell(model.maxTokens !== undefined ? String(model.maxTokens) : '-', 10) +
+        padCell(model.toolCall ? 'sim' : 'não', 7) +
+        cost,
+    )
+  }
+  return lines
+}
+
 /**
  * Corre a CLI e devolve o código de saída. Não chama `process.exit` — a camada
  * `main.ts` é que o faz, para que os testes possam chamar isto em processo.
@@ -240,6 +333,23 @@ export async function runCli(argv: readonly string[], options: RunCliOptions = {
   }
   if (args.version) {
     out(readVersion())
+    return 0
+  }
+  // `models` não precisa de prompt — tem de ser verificado antes dessa falta.
+  if (args.models) {
+    const { registry, profile } = loadAgentRegistry({
+      profile: args.profile,
+      ...(args.home !== undefined ? { homeDir: args.home } : {}),
+    })
+    if (args.provider && !registry.get(args.provider)) {
+      log(`dsh: provedor desconhecido "${args.provider}" (conhecidos: ${registry.ids().join(', ')})`)
+      return 2
+    }
+    const listing = formatModelListing(registry, {
+      profile,
+      ...(args.provider !== undefined ? { provider: args.provider } : {}),
+    })
+    for (const line of listing) out(line)
     return 0
   }
   if (!args.prompt) {

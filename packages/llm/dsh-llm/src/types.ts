@@ -120,6 +120,12 @@ export type LlmStreamEvent =
 // Adapter
 // ---------------------------------------------------------------------------
 
+/**
+ * Transporte injectável — `fetch` nativo por omissão, mock nos testes.
+ * Partilhado por todos os adapters para que os testes possam interceptar o HTTP.
+ */
+export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
+
 export interface LlmCallOptions {
   signal?: AbortSignal
   /** Timeout total do pedido em ms. */

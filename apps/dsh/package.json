@@ -25,6 +25,7 @@
     "@open-harness/dsh-agent": "workspace:*",
     "@open-harness/dsh-agent-loop": "workspace:*",
     "@open-harness/dsh-llm": "workspace:*",
+    "@open-harness/dsh-provider": "workspace:*",
     "@open-harness/dsh-tool-bash": "workspace:*",
     "@open-harness/dsh-tool-fs": "workspace:*",
     "@open-harness/dsh-tool-fs-search": "workspace:*",

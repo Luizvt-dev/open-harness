@@ -20,7 +20,7 @@
     "@open-harness/cordis": "workspace:*",
     "@open-harness/dsh-agent-loop": "workspace:*",
     "@open-harness/dsh-llm": "workspace:*",
-    "@open-harness/dsh-llm-deepseek": "workspace:*",
+    "@open-harness/dsh-provider": "workspace:*",
     "@open-harness/dsh-session": "workspace:*",
     "@open-harness/dsh-session-format": "workspace:*",
     "@open-harness/dsh-session-persistence-jsonl": "workspace:*",

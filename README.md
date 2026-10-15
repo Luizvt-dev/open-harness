@@ -6,9 +6,11 @@ sistema do dsh: **kernel de plugins (cordis) + composição declarativa de
 perfis por camadas de patch YAML**.
 
 > **Escopo desta entrega: Fase 0 + Fase 1 + Fase 2** do plano (fundação,
-> kernel de perfis/composição e núcleo do agente com a CLI `dsh`). As fases
-> seguintes (superfície web, shell desktop, runtime embarcado, paridade
-> avançada) estão no roadmap.
+> kernel de perfis/composição e núcleo do agente com a CLI `dsh`), mais o
+> **sistema de provedores múltiplos** (registry + catálogo + adapters por
+> protocolo, à maneira do `provider:` do OpenCode). As fases seguintes
+> (superfície web, shell desktop, runtime embarcado, paridade avançada)
+> estão no roadmap.
 
 ## Estado
 
@@ -17,6 +19,7 @@ perfis por camadas de patch YAML**.
 | 0 — Fundação (monorepo, kernel DI, loader, testes/CI) | ✅ concluída |
 | 1 — Perfis e composição (bundles, patch YAML, HMR) | ✅ concluída |
 | 2 — Núcleo do agente (LLM, tools, loop, sessão, CLI) | ✅ concluída |
+| 2+ — Provedores múltiplos (registry, catálogo, adapters) | ✅ concluída |
 | 3 — Superfície Web + transporte | ⏳ planeada |
 | 4 — Shell Desktop (Electron) | ⏳ planeada |
 | 5 — Runtime embarcado + Skills Office | ⏳ planeada |
@@ -26,17 +29,20 @@ perfis por camadas de patch YAML**.
 
 ```bash
 pnpm install       # liga os pacotes do workspace
-pnpm check         # typecheck (build + testes) e 210 testes
+pnpm check         # typecheck (build + testes) e 265 testes
 pnpm test          # só os testes
 pnpm build         # tsc -b de todos os pacotes (composite)
 
 # CLI (precisa da chave para correr com o modelo real)
 pnpm dsh --profile headless "crie um README"
 pnpm dsh --offline -v "crie um README"   # sem rede: exercita tools + sessão
+pnpm dsh models                          # provedores ligados e modelos
+pnpm dsh --model openai/gpt-5.4 "olá"    # escolher provedor por referência
 ```
 
-Requer Node ≥ 24 e pnpm 12. A chave vai em `DEEPSEEK_API_KEY`; o home de
-dados em `OPEN_HARNESS_HOME` (default `~/.open-harness`).
+Requer Node ≥ 24 e pnpm 12. As chaves vão no ambiente (`DEEPSEEK_API_KEY`,
+`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, …); o home de dados
+em `OPEN_HARNESS_HOME` (default `~/.open-harness`).
 
 ## Estrutura
 
@@ -54,8 +60,10 @@ packages/
     hmr/                  # Hmr: reload serializado + fs.watch + debounce
   llm/
     dsh-llm/              # tipos Anthropic-like, erros, retry/backoff,
-                          # TokenMeter, LlmClient, collectStream, coalesceText
-    dsh-llm-deepseek/     # DeepSeekAdapter (fetch injectável) + SSE + catálogo
+                          # TokenMeter, LlmClient, SseParser e AnthropicAdapter
+    dsh-llm-deepseek/     # DeepSeekAdapter (preset do protocolo Anthropic)
+    dsh-provider/         # registry de provedores, catálogo, refs provedor/modelo
+                          # e adapters OpenAI (chat) e Google (Gemini)
   session/
     dsh-session-format/   # v4 canónico + migrações v0..v3 documentadas
     dsh-session/          # Session, encodeWorkspace, caminhos de ficheiro
@@ -139,10 +147,56 @@ processo**.
 - `dsh-llm` — contrato Anthropic-like (`LlmMessage`/`ContentBlock`/
   `LlmRequest`/`LlmResponse`), erros tipados (`LlmAbortedError`,
   `LlmNetworkError`, `LlmTimeoutError`, `errorFromStatus`), retry com backoff,
-  `TokenMeter` e `LlmClient` (retry + `collectStream` + `coalesceText`).
-- `dsh-llm-deepseek` — `DeepSeekAdapter` sobre `fetch` injectável, endpoint
-  `https://api.deepseek.com/anthropic`, SSE próprio (`SseParser`), catálogo
-  `deepseek-flash` / `deepseek-v4-pro`. **Não** usamos o SDK da Anthropic.
+  `TokenMeter`, `LlmClient` (retry + `collectStream` + `coalesceText`),
+  `SseParser` (enquadramento SSE comum a todos os protocolos) e
+  `AnthropicAdapter` (wire da Anthropic, com `validateModel`/`limits`
+  injectáveis).
+- `dsh-llm-deepseek` — `DeepSeekAdapter`, o preset DeepSeek do protocolo
+  Anthropic: fixa endpoint `https://api.deepseek.com/anthropic`, versão,
+  limites e validação do catálogo (`requireModel`). **Não** usamos SDKs.
+- `dsh-provider` — o sistema de provedores, descrito abaixo.
+
+### Sistema de provedores múltiplos
+
+Inspirado no bloco `provider:` do OpenCode: a configuração diz **que** fala com
+o modelo; o registry decide **como**.
+
+- **Referências** `provedor/modelo` — `openai/gpt-5.4`, ou só `gpt-5.4` (usa o
+  provedor default `deepseek`). O split é no **primeiro** `/`, por isso
+  `openrouter/anthropic/claude-sonnet-4.5` funciona.
+- **Catálogo embutido** (o análogo local ao models.dev, valores reais):
+  `deepseek`, `anthropic`, `openai`, `google`, `openrouter`, `groq` e
+  `ollama`, com contexto, saída, custo, tools e modalidades. Determinístico e
+  offline; o perfil pode estendê-lo ou sobrepor qualquer entrada.
+- **Protocolos** (`api`): `anthropic-messages`, `openai-chat`
+  (usa `max_completion_tokens`), `openai-compatible` (OpenRouter, Groq,
+  Ollama, vLLM — usa `max_tokens`) e `google-generate` (Gemini).
+- **Chaves**: literal, `{ env: VAR }` ou `{ file: caminho }`, com as variáveis
+  do catálogo embutido como fallback. Sem chave, o erro diz o provedor e a
+  variável em falta (`missing API key for provider "openai" (set OPENAI_API_KEY)`)
+  — a criação é *lazy*, por isso o boot não rebenta por isso.
+- **Modelos fora do catálogo** são aceites (o próprio endpoint diz se existem)
+  com defaults conservadores; com `strict: true` falham cedo e listam o que
+  existe.
+
+```yaml
+# cordis.patch.yml do perfil
+agent:
+  config:
+    model: interno/modelo-7b
+    providers:
+      interno:
+        name: LLM interno
+        api: openai-compatible
+        baseURL: http://llm.interno:8000/v1
+        apiKey: { env: INTERNO_API_KEY }
+        models:
+          modelo-7b: { contextWindow: 32000, maxTokens: 8192, toolCall: true }
+```
+
+`dsh models` mostra o resultado desta composição (provedores, protocolo, chave
+em falta e as referências prontas a usar), **sem exigir API key** — lê o
+perfil composto em vez de criar o serviço `agent`.
 
 ### Sessão
 
@@ -172,9 +226,12 @@ pnpm dsh --profile headless "crie um README"
 
 1. materializa `~/.open-harness/profiles/headless` apontando ao bundle
    `apps/dsh/bundles/headless` (manifesto gerado, idempotente);
-2. escreve `~/.open-harness/runtime/overlay.yml` com as sobrescritas da
-   linha de comandos (`--home/--model/--system/--cwd`) — overlay porque só
-   declara `config:`, deixando o `requireDir` da linha no bundle;
+2. lê a configuração composta do perfil (`readAgentConfig`) e escreve
+   `~/.open-harness/runtime/overlay.yml` com essa herança **mais** as
+   sobrescritas da linha de comandos (`--home/--model/--system/--cwd`) —
+   overlay porque só declara `config:`, deixando o `requireDir` da linha no
+   bundle. Como o `config` é substituído por inteiro pela camada mais alta,
+   sem esta herança o `--model` sozinho apagaria o `system` do bundle;
 3. `bootApp` compõe `bundles → perfil → home → overlay` e aplica as linhas no
    cordis: `agent` (plugin `dsh-agent`) e `cli-tools` (com `requires: ['agent']`);
 4. resolve o serviço `agent` e corre um turno — tools reais, sessão persistida
@@ -182,6 +239,8 @@ pnpm dsh --profile headless "crie um README"
 
 `--offline` troca o transporte por um `ScriptedAdapter` determinístico (escreve
 o `README.md` e fecha o turno), para exercitar o pipeline inteiro sem rede.
+`dsh models` (ou `--models`) lista provedores e modelos; `--provider <id>`
+filtra.
 
 ## Decisões conscientes (divergências do plano)
 
@@ -192,6 +251,12 @@ o `README.md` e fecha o turno), para exercitar o pipeline inteiro sem rede.
   original (`cosmokit`, `schemastery`, `cordis`, `cordis-plugin-loader`,
   `home-paths`, `profile-boot`, `app-boot`, `hmr`), com implementação própria.
 - Stack: TypeScript 7 (nativo), Vitest 5, pnpm workspaces, ESM estrito.
+- **Provedores**: o catálogo é **local e determinístico** (valores reais
+  extraídos do models.dev, mas sem fetch remoto no arranque) e os adapters são
+  implementação própria — nenhum SDK oficial de provedor é usado.
+- **Novo pacote `dsh-provider`**: não existe no sistema original (que era
+  mono-provedor); é a camada que traz a forma do `provider:` do OpenCode para
+  o mesmo mecanismo de perfis.
 
 ## Roadmap (Fases 3–6, resumo do plano)
 
@@ -208,10 +273,12 @@ o `README.md` e fecha o turno), para exercitar o pipeline inteiro sem rede.
 ## Testes
 
 `pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
-(**210 testes / 20 ficheiros**): kernel (cordis, loader), composição
+(**265 testes / 24 ficheiros**): kernel (cordis, loader), composição
 (profile-boot), arranque (app-boot), HMR (unit + integração — critério de
-aceite da Fase 1), home-paths, LLM (`dsh-llm`, `dsh-llm-deepseek`), sessão
-(formato, `Session`, persistência zstd), tools (`dsh-tools`, fs, search, bash),
-loop (`dsh-agent-loop`) e a **CLI `dsh`** — incluindo o teste de aceite da
-Fase 2 que corre `dsh --profile headless "crie um README"` de ponta a ponta e
-verifica a tool executada, o `session.v4.jsonl.zstd` e a resposta final.
+aceite da Fase 1), home-paths, LLM (`dsh-llm`, `dsh-llm-deepseek`), provedores
+(`dsh-provider`: refs, catálogo, registry e os três adapters com `fetch`
+falso), sessão (formato, `Session`, persistência zstd), tools (`dsh-tools`,
+fs, search, bash), loop (`dsh-agent-loop`), serviço `agent` multi-provedor e a
+**CLI `dsh`** — incluindo o teste de aceite da Fase 2 que corre
+`dsh --profile headless "crie um README"` de ponta a ponta e verifica a tool
+executada, o `session.v4.jsonl.zstd` e a resposta final.

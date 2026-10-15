@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -50,6 +50,19 @@ describe('parseArgs', () => {
     expect(args.profile).toBe('headless')
     expect(args.prompt).toBe('crie um README')
     expect(args.offline).toBe(false)
+  })
+
+  it('reconhece o subcomando `models` e a opção `--models`', () => {
+    expect(parseArgs(['models']).models).toBe(true)
+    expect(parseArgs(['--models']).models).toBe(true)
+    expect(parseArgs(['models']).prompt).toBe('')
+    expect(parseArgs(['models', '--provider', 'groq'])).toMatchObject({
+      models: true,
+      provider: 'groq',
+      prompt: '',
+    })
+    // `models` depois de `--` é prompt, não subcomando.
+    expect(parseArgs(['--', 'models'])).toMatchObject({ models: false, prompt: 'models' })
   })
 
   it('aceita atalhos e valor em `--chave=valor`', () => {
@@ -154,6 +167,108 @@ describe('writeRuntimeOverlay', () => {
     const doc = parseYaml(await readFile(file, 'utf8')) as Record<string, unknown>
     expect(doc).toEqual({ agent: { config: expect.any(Object) } })
     expect(Object.keys(doc)).not.toContain('plugin')
+  })
+
+  it('transporta a herança do perfil: o overlay substitui o `config` por inteiro', async () => {
+    const home = await tempDir('dsh-home-')
+    const base = {
+      system: 'seja breve',
+      model: 'deepseek-flash',
+      providers: { openai: { apiKey: { env: 'OPENAI_API_KEY' } } },
+    }
+    const file = writeRuntimeOverlay(home, { model: 'openai/gpt-5.4' }, base)
+    const doc = parseYaml(await readFile(file, 'utf8')) as {
+      agent: { config: Record<string, unknown> }
+    }
+
+    // Sem a base, `--model` sozinho apagaria o system prompt do bundle.
+    expect(doc.agent.config.system).toBe('seja breve')
+    expect(doc.agent.config.providers).toEqual(base.providers)
+    expect(doc.agent.config.model).toBe('openai/gpt-5.4')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// `dsh models` — listagem de provedores e modelos
+// ---------------------------------------------------------------------------
+
+describe('dsh models', () => {
+  it('lista provedores e modelos sem exigir API key', async () => {
+    const home = await tempDir('dsh-home-')
+    const out: string[] = []
+    const code = await runCli(['models', '--home', home], {
+      out: (line) => out.push(line),
+      log: () => {},
+    })
+
+    const text = out.join('\n')
+    expect(code).toBe(0)
+    expect(text).toContain('PROVEDORES')
+    expect(text).toContain('deepseek *')
+    expect(text).toContain('https://api.deepseek.com/anthropic')
+    // O Ollama é local: não tem chave nem modelos declarados.
+    expect(text).toContain('ollama')
+    expect(text).toContain('local')
+    // Referências prontas a usar com `--model`.
+    expect(text).toContain('deepseek/deepseek-flash')
+    expect(text).toContain('openrouter/anthropic/claude-sonnet-4.5')
+  })
+
+  it('filtra por provedor e recusa provedor desconhecido', async () => {
+    const home = await tempDir('dsh-home-')
+    const out: string[] = []
+    const code = await runCli(['models', '--home', home, '--provider', 'groq'], {
+      out: (line) => out.push(line),
+      log: () => {},
+    })
+    expect(code).toBe(0)
+    expect(out.join('\n')).toContain('groq/llama-3.3-70b-versatile')
+    expect(out.join('\n')).not.toContain('deepseek-flash')
+
+    const log: string[] = []
+    const bad = await runCli(['models', '--home', home, '--provider', 'nao-existe'], {
+      out: () => {},
+      log: (line) => log.push(line),
+    })
+    expect(bad).toBe(2)
+    expect(log.join('\n')).toContain('provedor desconhecido')
+  })
+
+  it('mostra os provedores declarados no perfil, não só os embutidos', async () => {
+    const home = await tempDir('dsh-home-')
+    const { profileDir } = ensureProfile({ homeDir: home })
+    // Camada do perfil: sobrepõe o `config` da linha `agent` do bundle.
+    await writeFile(
+      join(profileDir, 'cordis.patch.yml'),
+      [
+        'agent:',
+        '  config:',
+        '    system: responda em português',
+        '    providers:',
+        '      interno:',
+        '        name: LLM interno',
+        '        api: openai-compatible',
+        '        baseURL: http://llm.interno:8000/v1',
+        '        models:',
+        '          modelo-7b:',
+        '            name: Modelo 7B',
+        '            contextWindow: 32000',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const out: string[] = []
+    const code = await runCli(['models', '--home', home, '--provider', 'interno'], {
+      out: (line) => out.push(line),
+      log: () => {},
+    })
+    expect(code).toBe(0)
+    const text = out.join('\n')
+    expect(text).toContain('interno')
+    expect(text).toContain('openai-compatible')
+    expect(text).toContain('http://llm.interno:8000/v1')
+    expect(text).toContain('interno/modelo-7b')
   })
 })
 

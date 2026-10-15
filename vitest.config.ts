@@ -15,6 +15,7 @@ const aliases: Record<string, string> = {
   '@open-harness/hmr': local('packages/boot/hmr/src/index.ts'),
   '@open-harness/dsh-llm': local('packages/llm/dsh-llm/src/index.ts'),
   '@open-harness/dsh-llm-deepseek': local('packages/llm/dsh-llm-deepseek/src/index.ts'),
+  '@open-harness/dsh-provider': local('packages/llm/dsh-provider/src/index.ts'),
   '@open-harness/dsh-session-format': local('packages/session/dsh-session-format/src/index.ts'),
   '@open-harness/dsh-session': local('packages/session/dsh-session/src/index.ts'),
   '@open-harness/dsh-session-persistence-jsonl': local(

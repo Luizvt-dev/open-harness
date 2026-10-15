@@ -193,6 +193,9 @@ importers:
       '@open-harness/dsh-llm':
         specifier: workspace:*
         version: link:../../packages/llm/dsh-llm
+      '@open-harness/dsh-provider':
+        specifier: workspace:*
+        version: link:../../packages/llm/dsh-provider
       '@open-harness/dsh-tool-bash':
         specifier: workspace:*
         version: link:../../packages/agent/dsh-tool-bash
@@ -226,9 +229,9 @@ importers:
       '@open-harness/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/dsh-llm
-      '@open-harness/dsh-llm-deepseek':
+      '@open-harness/dsh-provider':
         specifier: workspace:*
-        version: link:../../llm/dsh-llm-deepseek
+        version: link:../../llm/dsh-provider
       '@open-harness/dsh-session':
         specifier: workspace:*
         version: link:../../session/dsh-session
@@ -348,6 +351,12 @@ importers:
   packages/llm/dsh-llm: {}
 
   packages/llm/dsh-llm-deepseek:
+    dependencies:
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../dsh-llm
+
+  packages/llm/dsh-provider:
     dependencies:
       '@open-harness/dsh-llm':
         specifier: workspace:*

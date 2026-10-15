@@ -17,6 +17,7 @@
       "@open-harness/hmr": ["./packages/boot/hmr/src/index.ts"],
       "@open-harness/dsh-llm": ["./packages/llm/dsh-llm/src/index.ts"],
       "@open-harness/dsh-llm-deepseek": ["./packages/llm/dsh-llm-deepseek/src/index.ts"],
+      "@open-harness/dsh-provider": ["./packages/llm/dsh-provider/src/index.ts"],
       "@open-harness/dsh-session-format": ["./packages/session/dsh-session-format/src/index.ts"],
       "@open-harness/dsh-session": ["./packages/session/dsh-session/src/index.ts"],
       "@open-harness/dsh-session-persistence-jsonl": [

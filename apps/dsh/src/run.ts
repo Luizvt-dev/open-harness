@@ -4,8 +4,9 @@ import { bootApp } from '@open-harness/app-boot'
 import { AGENT_SERVICE, LLM_ADAPTER_SERVICE, type AgentService } from '@open-harness/dsh-agent'
 import type { TurnOutcome } from '@open-harness/dsh-agent-loop'
 import type { LlmAdapter } from '@open-harness/dsh-llm'
+import { ProviderRegistry, type ProviderConfig } from '@open-harness/dsh-provider'
 import { resolveDshHome } from '@open-harness/home-paths'
-import { ensureProfile, writeRuntimeOverlay, type RuntimeOverrides } from './profile.js'
+import { ensureProfile, readAgentConfig, writeRuntimeOverlay, type RuntimeOverrides } from './profile.js'
 
 /** Opções de um turno único executado pela CLI. */
 export interface RunOptions extends RuntimeOverrides {
@@ -48,11 +49,18 @@ export async function runPrompt(options: RunOptions): Promise<RunResult> {
   const home = resolve(options.homeDir ?? resolveDshHome())
 
   const { profileDir } = ensureProfile({ homeDir: home, name: profile })
-  const overlay = writeRuntimeOverlay(home, {
-    ...(options.model !== undefined ? { model: options.model } : {}),
-    ...(options.system !== undefined ? { system: options.system } : {}),
-    ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
-  })
+  // Herança do perfil (system, providers, model) — tem de ir no overlay, que
+  // substitui o `config` da linha `agent` por inteiro.
+  const base = readAgentConfig(profileDir, home)
+  const overlay = writeRuntimeOverlay(
+    home,
+    {
+      ...(options.model !== undefined ? { model: options.model } : {}),
+      ...(options.system !== undefined ? { system: options.system } : {}),
+      ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
+    },
+    base,
+  )
 
   const ctx = new Context()
   if (options.adapter) ctx.set(LLM_ADAPTER_SERVICE, options.adapter)
@@ -73,4 +81,35 @@ export async function runPrompt(options: RunOptions): Promise<RunResult> {
   } finally {
     await boot.shutdown()
   }
+}
+
+/**
+ * Bloco de provedores declarado no perfil.
+ *
+ * Aceita `providers` (canónico) e `provider` (alias da forma do OpenCode) —
+ * os dois são o mesmo mapa `id → config`.
+ */
+export function agentProvidersFrom(config: Record<string, unknown>): Record<string, ProviderConfig> {
+  const raw = config.providers ?? config.provider
+  if (!raw || typeof raw !== 'object') return {}
+  return raw as Record<string, ProviderConfig>
+}
+
+/**
+ * Registry de provedores do perfil, **sem arrancar o agente**.
+ *
+ * Importante para `dsh models`: resolver o serviço `agent` exigiria criar o
+ * adapter (e portanto a API key), mas listar o catálogo não deve exigir chave.
+ */
+export function loadAgentRegistry(options: { profile?: string; homeDir?: string } = {}): {
+  registry: ProviderRegistry
+  profile: string
+  profileDir: string
+} {
+  const profile = options.profile ?? 'headless'
+  const home = resolve(options.homeDir ?? resolveDshHome())
+  const { profileDir } = ensureProfile({ homeDir: home, name: profile })
+  const config = readAgentConfig(profileDir, home)
+  const registry = new ProviderRegistry({ env: process.env, providers: agentProvidersFrom(config) })
+  return { registry, profile, profileDir }
 }

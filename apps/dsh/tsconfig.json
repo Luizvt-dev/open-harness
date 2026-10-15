@@ -11,6 +11,7 @@
     { "path": "../../packages/boot/profile-boot" },
     { "path": "../../packages/boot/app-boot" },
     { "path": "../../packages/llm/dsh-llm" },
+    { "path": "../../packages/llm/dsh-provider" },
     { "path": "../../packages/agent/dsh-tools" },
     { "path": "../../packages/agent/dsh-tool-fs" },
     { "path": "../../packages/agent/dsh-tool-fs-search" },

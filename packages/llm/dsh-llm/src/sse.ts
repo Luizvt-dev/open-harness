@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------
-// Parser SSE (text/event-stream) — usado pelo streaming da API Anthropic-like
+// Parser SSE (text/event-stream) — transporte comum a todos os protocolos
+// (Anthropic Messages, OpenAI Chat Completions, Google generateContent).
 // ---------------------------------------------------------------------------
 
 export interface SseEvent {
@@ -11,7 +12,7 @@ export interface SseEvent {
 
 /**
  * Parser SSE incremental: consome chunks de texto e emite eventos completos.
- * tolerate CRLF, eventos sem `event:`, e `data:` multi-linha.
+ * Tolera CRLF, eventos sem `event:`, e `data:` multi-linha.
  */
 export class SseParser {
   private buffer = ''

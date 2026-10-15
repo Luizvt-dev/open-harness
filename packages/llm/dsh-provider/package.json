@@ -1,0 +1,22 @@
+{
+  "name": "@open-harness/dsh-provider",
+  "version": "0.1.0",
+  "description": "Sistema de provedores LLM: registry, catálogo de modelos, refs provedor/modelo e adapters por protocolo",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/dsh-llm": "workspace:*"
+  }
+}
