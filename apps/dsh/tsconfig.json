@@ -12,11 +12,15 @@
     { "path": "../../packages/boot/app-boot" },
     { "path": "../../packages/llm/dsh-llm" },
     { "path": "../../packages/llm/dsh-provider" },
+    { "path": "../../packages/session/dsh-session" },
     { "path": "../../packages/agent/dsh-tools" },
     { "path": "../../packages/agent/dsh-tool-fs" },
     { "path": "../../packages/agent/dsh-tool-fs-search" },
     { "path": "../../packages/agent/dsh-tool-bash" },
     { "path": "../../packages/agent/dsh-agent-loop" },
-    { "path": "../../packages/agent/dsh-agent" }
+    { "path": "../../packages/agent/dsh-agent" },
+    { "path": "../../packages/web/dsh-host-webserver" },
+    { "path": "../../packages/web/dsh-api-gateway" },
+    { "path": "../../packages/web/dsh-api-remotes" }
   ]
 }
