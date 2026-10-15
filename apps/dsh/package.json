@@ -1,0 +1,36 @@
+{
+  "name": "@open-harness/dsh-cli",
+  "version": "0.1.0",
+  "description": "CLI `dsh` — arranque por perfis do Open Harness (kernel cordis + composição declarativa)",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "dsh": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "bundles"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/app-boot": "workspace:*",
+    "@open-harness/cordis": "workspace:*",
+    "@open-harness/dsh-agent": "workspace:*",
+    "@open-harness/dsh-agent-loop": "workspace:*",
+    "@open-harness/dsh-llm": "workspace:*",
+    "@open-harness/dsh-tool-bash": "workspace:*",
+    "@open-harness/dsh-tool-fs": "workspace:*",
+    "@open-harness/dsh-tool-fs-search": "workspace:*",
+    "@open-harness/dsh-tools": "workspace:*",
+    "@open-harness/home-paths": "workspace:*",
+    "@open-harness/profile-boot": "workspace:*",
+    "yaml": "^2.8.1"
+  }
+}

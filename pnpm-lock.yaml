@@ -176,6 +176,117 @@ importers:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
 
+  apps/dsh:
+    dependencies:
+      '@open-harness/app-boot':
+        specifier: workspace:*
+        version: link:../../packages/boot/app-boot
+      '@open-harness/cordis':
+        specifier: workspace:*
+        version: link:../../packages/kernel/cordis
+      '@open-harness/dsh-agent':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-agent
+      '@open-harness/dsh-agent-loop':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-agent-loop
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/dsh-llm
+      '@open-harness/dsh-tool-bash':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-tool-bash
+      '@open-harness/dsh-tool-fs':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-tool-fs
+      '@open-harness/dsh-tool-fs-search':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-tool-fs-search
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent/dsh-tools
+      '@open-harness/home-paths':
+        specifier: workspace:*
+        version: link:../../packages/boot/home-paths
+      '@open-harness/profile-boot':
+        specifier: workspace:*
+        version: link:../../packages/boot/profile-boot
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.1
+
+  packages/agent/dsh-agent:
+    dependencies:
+      '@open-harness/cordis':
+        specifier: workspace:*
+        version: link:../../kernel/cordis
+      '@open-harness/dsh-agent-loop':
+        specifier: workspace:*
+        version: link:../dsh-agent-loop
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/dsh-llm
+      '@open-harness/dsh-llm-deepseek':
+        specifier: workspace:*
+        version: link:../../llm/dsh-llm-deepseek
+      '@open-harness/dsh-session':
+        specifier: workspace:*
+        version: link:../../session/dsh-session
+      '@open-harness/dsh-session-format':
+        specifier: workspace:*
+        version: link:../../session/dsh-session-format
+      '@open-harness/dsh-session-persistence-jsonl':
+        specifier: workspace:*
+        version: link:../../session/dsh-session-persistence-jsonl
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../dsh-tools
+      '@open-harness/home-paths':
+        specifier: workspace:*
+        version: link:../../boot/home-paths
+
+  packages/agent/dsh-agent-loop:
+    dependencies:
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/dsh-llm
+      '@open-harness/dsh-session':
+        specifier: workspace:*
+        version: link:../../session/dsh-session
+      '@open-harness/dsh-session-format':
+        specifier: workspace:*
+        version: link:../../session/dsh-session-format
+      '@open-harness/dsh-session-persistence-jsonl':
+        specifier: workspace:*
+        version: link:../../session/dsh-session-persistence-jsonl
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../dsh-tools
+
+  packages/agent/dsh-tool-bash:
+    dependencies:
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../dsh-tools
+
+  packages/agent/dsh-tool-fs:
+    dependencies:
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../dsh-tools
+
+  packages/agent/dsh-tool-fs-search:
+    dependencies:
+      '@open-harness/dsh-tools':
+        specifier: workspace:*
+        version: link:../dsh-tools
+
+  packages/agent/dsh-tools:
+    dependencies:
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/dsh-llm
+
   packages/boot/app-boot:
     dependencies:
       '@open-harness/cordis':
@@ -233,6 +344,31 @@ importers:
       '@open-harness/cosmokit':
         specifier: workspace:*
         version: link:../cosmokit
+
+  packages/llm/dsh-llm: {}
+
+  packages/llm/dsh-llm-deepseek:
+    dependencies:
+      '@open-harness/dsh-llm':
+        specifier: workspace:*
+        version: link:../dsh-llm
+
+  packages/session/dsh-session:
+    dependencies:
+      '@open-harness/dsh-session-format':
+        specifier: workspace:*
+        version: link:../dsh-session-format
+
+  packages/session/dsh-session-format: {}
+
+  packages/session/dsh-session-persistence-jsonl:
+    dependencies:
+      '@open-harness/dsh-session':
+        specifier: workspace:*
+        version: link:../dsh-session
+      '@open-harness/dsh-session-format':
+        specifier: workspace:*
+        version: link:../dsh-session-format
 
 packages:
 

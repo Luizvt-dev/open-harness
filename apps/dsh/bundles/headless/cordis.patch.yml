@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Bundle `headless` — perfil sem UI: só o agente e as tools da CLI.
+#
+# Resolvido pela CLI `dsh` a partir do manifesto do perfil
+# (`<home>/profiles/headless/package.json` → `dsh.profile.bundles[0].path`).
+# `requireDir` de cada linha é o directório deste ficheiro, por isso os
+# especificadores bare (`@open-harness/…`) resolvem subindo até ao
+# `node_modules` da app, e o caminho relativo da tools-plugin resolve para
+# `apps/dsh/dist/tools-plugin.js`.
+# ---------------------------------------------------------------------------
+
+# Plugin cordis que publica o serviço `agent` (criação *lazily*: a API key só
+# é validada quando alguém primeiro usa o agente).
+agent:
+  plugin: '@open-harness/dsh-agent'
+  config:
+    model: deepseek-flash
+    system: |
+      You are dsh, a headless coding agent operating directly on the user's
+      working directory. Use the available tools to inspect and change files
+      before answering. Reply in the user's language, be concise, and never
+      invent file contents you have not read.
+
+# Plugin desta CLI que regista as tools (fs, procura e shell) no agente.
+# `requires` declara a dependência na camada declarativa: o loader só aplica
+# a linha depois de o serviço `agent` existir (senão seria uma corrida entre
+# a resolução dos dois módulos).
+cli-tools:
+  plugin: '../../dist/tools-plugin.js'
+  requires: ['agent']

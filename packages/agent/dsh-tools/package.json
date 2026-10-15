@@ -1,0 +1,22 @@
+{
+  "name": "@open-harness/dsh-tools",
+  "version": "0.1.0",
+  "description": "Registo de tools do agente: definição, schemas, restrição e execução segura",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/dsh-llm": "workspace:*"
+  }
+}

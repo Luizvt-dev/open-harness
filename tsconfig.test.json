@@ -14,8 +14,22 @@
       "@open-harness/home-paths": ["./packages/boot/home-paths/src/index.ts"],
       "@open-harness/profile-boot": ["./packages/boot/profile-boot/src/index.ts"],
       "@open-harness/app-boot": ["./packages/boot/app-boot/src/index.ts"],
-      "@open-harness/hmr": ["./packages/boot/hmr/src/index.ts"]
+      "@open-harness/hmr": ["./packages/boot/hmr/src/index.ts"],
+      "@open-harness/dsh-llm": ["./packages/llm/dsh-llm/src/index.ts"],
+      "@open-harness/dsh-llm-deepseek": ["./packages/llm/dsh-llm-deepseek/src/index.ts"],
+      "@open-harness/dsh-session-format": ["./packages/session/dsh-session-format/src/index.ts"],
+      "@open-harness/dsh-session": ["./packages/session/dsh-session/src/index.ts"],
+      "@open-harness/dsh-session-persistence-jsonl": [
+        "./packages/session/dsh-session-persistence-jsonl/src/index.ts"
+      ],
+      "@open-harness/dsh-tools": ["./packages/agent/dsh-tools/src/index.ts"],
+      "@open-harness/dsh-tool-fs": ["./packages/agent/dsh-tool-fs/src/index.ts"],
+      "@open-harness/dsh-tool-fs-search": ["./packages/agent/dsh-tool-fs-search/src/index.ts"],
+      "@open-harness/dsh-tool-bash": ["./packages/agent/dsh-tool-bash/src/index.ts"],
+      "@open-harness/dsh-agent-loop": ["./packages/agent/dsh-agent-loop/src/index.ts"],
+      "@open-harness/dsh-agent": ["./packages/agent/dsh-agent/src/index.ts"],
+      "@open-harness/dsh-cli": ["./apps/dsh/src/index.ts"]
     }
   },
-  "include": ["packages/**/test/**/*.ts", "vitest.config.ts"]
+  "include": ["packages/**/test/**/*.ts", "apps/**/test/**/*.ts", "vitest.config.ts"]
 }

@@ -16,6 +16,7 @@
     "typecheck:tests": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "dsh": "node apps/dsh/dist/main.js",
     "check": "pnpm typecheck && pnpm typecheck:tests && pnpm test"
   },
   "devDependencies": {

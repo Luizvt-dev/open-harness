@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/kernel/cordis" },
+    { "path": "../../packages/boot/home-paths" },
+    { "path": "../../packages/boot/profile-boot" },
+    { "path": "../../packages/boot/app-boot" },
+    { "path": "../../packages/llm/dsh-llm" },
+    { "path": "../../packages/agent/dsh-tools" },
+    { "path": "../../packages/agent/dsh-tool-fs" },
+    { "path": "../../packages/agent/dsh-tool-fs-search" },
+    { "path": "../../packages/agent/dsh-tool-bash" },
+    { "path": "../../packages/agent/dsh-agent-loop" },
+    { "path": "../../packages/agent/dsh-agent" }
+  ]
+}

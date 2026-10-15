@@ -8,6 +8,18 @@
     { "path": "packages/boot/home-paths" },
     { "path": "packages/boot/profile-boot" },
     { "path": "packages/boot/app-boot" },
-    { "path": "packages/boot/hmr" }
+    { "path": "packages/boot/hmr" },
+    { "path": "packages/llm/dsh-llm" },
+    { "path": "packages/llm/dsh-llm-deepseek" },
+    { "path": "packages/session/dsh-session-format" },
+    { "path": "packages/session/dsh-session" },
+    { "path": "packages/session/dsh-session-persistence-jsonl" },
+    { "path": "packages/agent/dsh-tools" },
+    { "path": "packages/agent/dsh-tool-fs" },
+    { "path": "packages/agent/dsh-tool-fs-search" },
+    { "path": "packages/agent/dsh-tool-bash" },
+    { "path": "packages/agent/dsh-agent-loop" },
+    { "path": "packages/agent/dsh-agent" },
+    { "path": "apps/dsh" }
   ]
 }

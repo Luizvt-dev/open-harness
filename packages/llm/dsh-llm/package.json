@@ -1,0 +1,19 @@
+{
+  "name": "@open-harness/dsh-llm",
+  "version": "0.1.0",
+  "description": "Abstração LLM: adapter, streaming, retry, contabilização de tokens e anexos de imagem",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

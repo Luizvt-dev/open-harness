@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../llm/dsh-llm" },
+    { "path": "../../session/dsh-session" },
+    { "path": "../../session/dsh-session-format" },
+    { "path": "../../session/dsh-session-persistence-jsonl" },
+    { "path": "../dsh-tools" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../kernel/cordis" },
+    { "path": "../../boot/home-paths" },
+    { "path": "../../llm/dsh-llm" },
+    { "path": "../../llm/dsh-llm-deepseek" },
+    { "path": "../../session/dsh-session" },
+    { "path": "../../session/dsh-session-format" },
+    { "path": "../../session/dsh-session-persistence-jsonl" },
+    { "path": "../dsh-tools" },
+    { "path": "../dsh-agent-loop" }
+  ]
+}
