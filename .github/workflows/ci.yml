@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # A versão do pnpm vem do campo `packageManager` do package.json —
+      # declará-la também aqui faz o action recusar ("Multiple versions of
+      # pnpm specified").
       - uses: pnpm/action-setup@v4
-        with:
-          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version: 24
