@@ -74,6 +74,25 @@ export interface ToolExecutionPolicy {
   authorize?(call: ToolExecOptions): boolean | Promise<boolean>
 }
 
+/**
+ * Evento emitido durante um turno.
+ *
+ * É o que a superfície web consome para mostrar o turno a acontecer: texto a
+ * aparecer, tools a começar e a terminar, tokens gastos. O turno continua a
+ * devolver um `TurnOutcome` completo — os eventos são observação, não
+ * substituem o resultado.
+ */
+export type LoopEvent =
+  | { type: 'turn_start' }
+  | { type: 'step_start'; step: number }
+  | { type: 'text_delta'; text: string }
+  /** A tool vai correr (ou vai ser recusada pela política). */
+  | { type: 'tool_use_start'; id: string; name: string; input: Record<string, unknown> }
+  /** A tool terminou; `ok` é `false` também quando foi recusada ou falhou. */
+  | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string; durationMs: number }
+  | { type: 'step_end'; step: number; stopReason: string; inputTokens: number; outputTokens: number }
+  | { type: 'turn_end'; text: string; steps: number; stoppedByLimit: boolean }
+
 /** Opções do loop. */
 export interface AgentLoopOptions {
   registry: ToolRegistry
@@ -83,4 +102,12 @@ export interface AgentLoopOptions {
   policy?: ToolExecutionPolicy
   /** Timeout por request LLM (ms). */
   requestTimeoutMs?: number
+  /**
+   * Observa o turno enquanto corre.
+   *
+   * Quando presente, o loop passa a usar o caminho de stream do cliente LLM,
+   * para poder emitir `text_delta` à medida que o texto chega. Sem ele, o
+   * comportamento é o de antes — um request bloqueante por step.
+   */
+  onEvent?: (event: LoopEvent) => void
 }

@@ -6,6 +6,7 @@ import { responseText, sessionToMessages } from './messages.js'
 import {
   DEFAULT_LOOP_LIMITS,
   type AgentLoopOptions,
+  type LoopEvent,
   type LoopLimits,
   type ToolExecOptions,
   type ToolExecResult,
@@ -44,6 +45,7 @@ export class AgentLoop {
   private readonly persister?: SessionPersister
   private readonly clock: LoopClock
   private readonly requestTimeoutMs?: number
+  private readonly onEvent?: (event: LoopEvent) => void
 
   constructor(
     client: LlmClient,
@@ -60,6 +62,16 @@ export class AgentLoop {
     this.persister = options.persister
     this.clock = options.clock ?? systemClock
     this.requestTimeoutMs = options.requestTimeoutMs
+    this.onEvent = options.onEvent
+  }
+
+  /** Com observador ligado, o loop fala o protocolo de stream do provedor. */
+  private get streaming(): boolean {
+    return this.onEvent !== undefined
+  }
+
+  private emit(event: LoopEvent): void {
+    this.onEvent?.(event)
   }
 
   /** Tools expostas ao modelo (snapshot actual do registry). */
@@ -83,8 +95,10 @@ export class AgentLoop {
     const traces: TurnTrace[] = []
     let text = ''
     let stoppedByLimit = false
+    this.emit({ type: 'turn_start' })
 
     for (let step = 0; step < this.limits.maxStepsPerTurn; step++) {
+      this.emit({ type: 'step_start', step })
       // CHECKPOINT antes de cada request (critério da Fase 2).
       await this.checkpoint()
 
@@ -97,19 +111,49 @@ export class AgentLoop {
       const calls = this.toolCallsOf(response)
       if (calls.length === 0) {
         text = responseText(response)
+        this.emitStepEnd(step, response)
         await this.persist()
-        return { text, steps: step + 1, toolExecutions, traces, stoppedByLimit }
+        return this.finish({ text, steps: step + 1, toolExecutions, traces, stoppedByLimit })
       }
 
       const accepted = calls.slice(0, this.limits.maxToolCallsPerStep)
       const results = await this.runTools(accepted, signal)
       toolExecutions.push(...results)
+      // O step só termina depois das tools — é a ordem que a UI espera ver.
+      this.emitStepEnd(step, response)
 
       if (step === this.limits.maxStepsPerTurn - 1) stoppedByLimit = true
     }
 
     await this.persist()
-    return { text, steps: this.limits.maxStepsPerTurn, toolExecutions, traces, stoppedByLimit }
+    return this.finish({
+      text,
+      steps: this.limits.maxStepsPerTurn,
+      toolExecutions,
+      traces,
+      stoppedByLimit,
+    })
+  }
+
+  private emitStepEnd(step: number, response: LlmResponse): void {
+    this.emit({
+      type: 'step_end',
+      step,
+      stopReason: response.stopReason,
+      inputTokens: response.usage.inputTokens,
+      outputTokens: response.usage.outputTokens,
+    })
+  }
+
+  /** Anuncia o fim do turno e devolve o resultado. */
+  private finish(outcome: TurnOutcome): TurnOutcome {
+    this.emit({
+      type: 'turn_end',
+      text: outcome.text,
+      steps: outcome.steps,
+      stoppedByLimit: outcome.stoppedByLimit,
+    })
+    return outcome
   }
 
   private async request(signal?: AbortSignal): Promise<LlmResponse> {
@@ -123,7 +167,13 @@ export class AgentLoop {
       ...(signal ? { signal } : {}),
       ...(this.requestTimeoutMs ? { timeoutMs: this.requestTimeoutMs } : {}),
     }
-    return await this.client.complete(request, options)
+    // Sem observador, o request bloqueante continua a ser o caminho rápido.
+    if (!this.streaming) return await this.client.complete(request, options)
+    // Com observador, usamos o stream para o texto poder ser emitido à medida
+    // que chega. A resposta final monta-se exactamente igual.
+    return await this.client.completeFromStream(request, options, (event) => {
+      if (event.type === 'text_delta' && event.text) this.emit({ type: 'text_delta', text: event.text })
+    })
   }
 
   private toolCallsOf(response: LlmResponse): ToolExecOptions[] {
@@ -168,11 +218,22 @@ export class AgentLoop {
     const results: ToolExecResult[] = []
     const ctx: ToolContext = { cwd: this.session.header.cwd, ...(signal ? { signal } : {}) }
     for (const call of calls) {
+      // Antes de decidir: a UI já pode mostrar a chamada e pedir aprovação.
+      this.emit({ type: 'tool_use_start', id: call.id, name: call.name, input: call.input })
+
       if (this.policy?.authorize) {
         const allowed = await this.policy.authorize(call)
         if (!allowed) {
           this.session.addToolResult(call.id, 'rejected by policy', true, this.clock.now())
           results.push({ ...emptyResult(call), output: 'rejected by policy', isError: true, durationMs: 0 })
+          this.emit({
+            type: 'tool_end',
+            id: call.id,
+            name: call.name,
+            ok: false,
+            output: 'rejected by policy',
+            durationMs: 0,
+          })
           continue
         }
       }
@@ -189,6 +250,14 @@ export class AgentLoop {
         : { ...emptyResult(call), output: outcome.error.message, isError: true, durationMs }
       this.session.addToolResult(call.id, result.output, result.isError, this.clock.now())
       results.push(result)
+      this.emit({
+        type: 'tool_end',
+        id: call.id,
+        name: call.name,
+        ok: !result.isError,
+        output: result.output,
+        durationMs,
+      })
     }
     return results
   }

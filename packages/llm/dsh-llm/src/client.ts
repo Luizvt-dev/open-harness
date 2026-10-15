@@ -173,11 +173,22 @@ export class LlmClient {
     }
   }
 
-  /** Stream → resposta montada, com retry e contabilização. */
-  async completeFromStream(request: LlmRequest, options: LlmCallOptions = {}): Promise<LlmResponse> {
+  /**
+   * Stream → resposta montada, com retry e contabilização.
+   *
+   * `onEvent` entrega cada evento bruto do stream a quem chama — é por aí que
+   * a UI vê texto a aparecer e tools a começar enquanto a resposta ainda está
+   * a ser gerada. Sem ele, o comportamento é o de antes.
+   */
+  async completeFromStream(
+    request: LlmRequest,
+    options: LlmCallOptions = {},
+    onEvent?: (event: LlmStreamEvent) => void,
+  ): Promise<LlmResponse> {
     const acc = createAccumulator()
     for await (const event of this.stream(request, options)) {
       accumulate(acc, event)
+      onEvent?.(event)
     }
     const response: LlmResponse = {
       id: acc.id,

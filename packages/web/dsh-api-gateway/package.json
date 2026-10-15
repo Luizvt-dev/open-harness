@@ -1,0 +1,19 @@
+{
+  "name": "@open-harness/dsh-api-gateway",
+  "version": "0.1.0",
+  "description": "Gateway RPC do host: unary + streams multiplexados sobre WebSocket, heartbeat, uplink e RemoteError",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

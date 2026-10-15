@@ -4,6 +4,7 @@ import {
   responseText,
   sessionToMessages,
   type LoopClock,
+  type LoopEvent,
   type SessionPersister,
 } from '@open-harness/dsh-agent-loop'
 import {
@@ -11,6 +12,7 @@ import {
   type LlmAdapter,
   type LlmRequest,
   type LlmResponse,
+  type LlmStreamEvent,
 } from '@open-harness/dsh-llm'
 import { Session } from '@open-harness/dsh-session'
 import type { SessionFile } from '@open-harness/dsh-session-format'
@@ -37,8 +39,30 @@ class ScriptedAdapter implements LlmAdapter {
     return next
   }
 
-  async *stream(): AsyncIterable<never> {
-    throw new Error('not used')
+  /**
+   * Mesmas respostas, mas em forma de stream.
+   *
+   * É o caminho que o loop usa quando tem observador — por isso tem de
+   * produzir os mesmos blocos, emitindo-os como `text_delta`/`tool_use_start`.
+   */
+  async *stream(request: LlmRequest): AsyncGenerator<LlmStreamEvent> {
+    const next = this.responses[0]
+    if (!next) throw new Error('scripted adapter: no more responses')
+    this.requests.push(request)
+    yield { type: 'message_start', id: 'msg_scripted', model: next.model }
+    for (const block of next.content) {
+      if (block.type === 'text') {
+        yield { type: 'text_delta', text: block.text }
+      } else if (block.type === 'tool_use') {
+        yield { type: 'tool_use_start', id: block.id, name: block.name }
+        yield { type: 'tool_use_delta', partialJson: JSON.stringify(block.input) }
+        yield { type: 'tool_use_stop', id: block.id }
+      }
+    }
+    yield { type: 'message_delta', stopReason: next.stopReason, usage: next.usage }
+    yield { type: 'message_stop' }
+    // A resposta já foi consumida — o próximo pedido busca a seguinte.
+    this.responses.shift()
   }
 }
 
@@ -88,7 +112,12 @@ function echoTool(calls: string[]): ToolDefinition {
 
 function loopOf(
   responses: LlmResponse[],
-  options: { registry?: ToolRegistry; limits?: { maxStepsPerTurn: number } } = {},
+  options: {
+    registry?: ToolRegistry
+    limits?: { maxStepsPerTurn: number }
+    onEvent?: (event: LoopEvent) => void
+    policy?: { authorize?: (call: { name: string }) => boolean | Promise<boolean> }
+  } = {},
 ): {
   loop: AgentLoop
   adapter: ScriptedAdapter
@@ -107,6 +136,8 @@ function loopOf(
     clock: manualClock(),
     persister,
     ...(options.limits ? { limits: options.limits } : {}),
+    ...(options.onEvent ? { onEvent: options.onEvent } : {}),
+    ...(options.policy?.authorize ? { policy: { authorize: options.policy.authorize } } : {}),
   })
   return { loop, adapter, session, persister }
 }
@@ -337,5 +368,95 @@ describe('AgentLoop — traces', () => {
     expect(outcome.traces).toHaveLength(2)
     expect(outcome.traces[0]).toMatchObject({ step: 0, stopReason: 'tool_use', inputTokens: 12, outputTokens: 8 })
     expect(outcome.traces[1]).toMatchObject({ step: 1, stopReason: 'end_turn' })
+  })
+})
+
+describe('AgentLoop — eventos do turno', () => {
+  it('emite a narrativa completa de um turno simples', async () => {
+    const events: LoopEvent[] = []
+    const { loop } = loopOf([textResponse('ola mundo')], { onEvent: (event) => events.push(event) })
+    const outcome = await loop.runTurn('diz olá')
+
+    expect(outcome.text).toBe('ola mundo')
+    expect(events.map((event) => event.type)).toEqual([
+      'turn_start',
+      'step_start',
+      'text_delta',
+      'step_end',
+      'turn_end',
+    ])
+    expect(events).toContainEqual({ type: 'text_delta', text: 'ola mundo' })
+    expect(events).toContainEqual({
+      type: 'step_end',
+      step: 0,
+      stopReason: 'end_turn',
+      inputTokens: 10,
+      outputTokens: 5,
+    })
+    expect(events.at(-1)).toEqual({ type: 'turn_end', text: 'ola mundo', steps: 1, stoppedByLimit: false })
+  })
+
+  it('emite tools a começar e a terminar, com o resultado', async () => {
+    const calls: string[] = []
+    const registry = new ToolRegistry().register(echoTool(calls))
+    const events: LoopEvent[] = []
+    const { loop } = loopOf(
+      [toolUseResponse('echo', { text: 'abc' }), textResponse('result: echo:abc')],
+      { registry, onEvent: (event) => events.push(event) },
+    )
+    const outcome = await loop.runTurn('ecoa abc')
+
+    expect(calls).toEqual(['abc'])
+    expect(events.map((event) => event.type)).toEqual([
+      'turn_start',
+      'step_start',
+      'tool_use_start',
+      'tool_end',
+      'step_end',
+      'step_start',
+      'text_delta',
+      'step_end',
+      'turn_end',
+    ])
+    expect(events).toContainEqual({
+      type: 'tool_use_start',
+      id: 'toolu_1',
+      name: 'echo',
+      input: { text: 'abc' },
+    })
+    expect(events).toContainEqual({
+      type: 'tool_end',
+      id: 'toolu_1',
+      name: 'echo',
+      ok: true,
+      output: 'echo:abc',
+      // O clock manual avança uma unidade entre o início e o fim da tool.
+      durationMs: 1,
+    })
+    expect(outcome.steps).toBe(2)
+  })
+
+  it('anuncia a recusa de uma tool pela política', async () => {
+    const events: LoopEvent[] = []
+    const registry = new ToolRegistry().register(echoTool([]))
+    const { loop } = loopOf(
+      [toolUseResponse('echo', { text: 'x' }), textResponse('sem eco')],
+      { registry, onEvent: (event) => events.push(event), policy: { authorize: () => false } },
+    )
+    await loop.runTurn('ecoa x')
+
+    const start = events.find((event) => event.type === 'tool_use_start')
+    const end = events.find((event) => event.type === 'tool_end')
+    expect(start).toMatchObject({ name: 'echo', input: { text: 'x' } })
+    expect(end).toMatchObject({ ok: false, output: 'rejected by policy' })
+  })
+
+  it('sem observador mantém o request bloqueante (nenhum evento)', async () => {
+    const events: LoopEvent[] = []
+    const { loop, adapter } = loopOf([textResponse('directo')])
+    await loop.runTurn('oi')
+
+    expect(events).toEqual([])
+    expect(adapter.requests).toHaveLength(1)
   })
 })

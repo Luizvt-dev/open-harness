@@ -21,6 +21,8 @@
     { "path": "packages/agent/dsh-tool-bash" },
     { "path": "packages/agent/dsh-agent-loop" },
     { "path": "packages/agent/dsh-agent" },
+    { "path": "packages/web/dsh-host-webserver" },
+    { "path": "packages/web/dsh-api-gateway" },
     { "path": "apps/dsh" }
   ]
 }
