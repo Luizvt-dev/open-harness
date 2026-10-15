@@ -23,6 +23,8 @@
     { "path": "packages/agent/dsh-agent" },
     { "path": "packages/web/dsh-host-webserver" },
     { "path": "packages/web/dsh-api-gateway" },
+    { "path": "packages/web/dsh-api-remotes" },
+    { "path": "packages/web/dsh-client-connection" },
     { "path": "apps/dsh" }
   ]
 }

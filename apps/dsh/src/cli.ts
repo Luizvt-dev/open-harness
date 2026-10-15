@@ -1,9 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import type { ProviderRegistry } from '@open-harness/dsh-provider'
-import { HEADLESS_PROFILE, cliPackageRoot } from './profile.js'
+import { HEADLESS_PROFILE, WEB_PROFILE, readVersion } from './profile.js'
 import { loadAgentRegistry, runPrompt, type RunResult } from './run.js'
 import { ScriptedAdapter, scriptedText, scriptedWrite } from './scripted.js'
+import { runWeb, type WebOptions } from './web.js'
 
 // ---------------------------------------------------------------------------
 // Erros
@@ -42,17 +41,26 @@ export interface CliArgs {
   printSession: boolean
   /** `dsh models` / `--models`: lista provedores e modelos e sai. */
   models: boolean
+  /** `dsh web` / `--web`: sobe o host web local em vez de correr um turno. */
+  web: boolean
+  /** Porta do servidor web (`dsh web`). */
+  port?: string
+  /** Endereço de escuta do servidor web (`dsh web`). */
+  host?: string
   help: boolean
   version: boolean
 }
 
 const DEFAULT_ARGS: CliArgs = {
   prompt: '',
-  profile: HEADLESS_PROFILE,
+  // Vazio de propósito: o perfil por omissão depende do comando — `headless`
+  // para um turno, `web` para `dsh web`. Quem chama resolve com `||`.
+  profile: '',
   offline: false,
   verbose: false,
   printSession: false,
   models: false,
+  web: false,
   help: false,
   version: false,
 }
@@ -69,6 +77,8 @@ const VALUE_FLAGS: Record<string, keyof CliArgs> = {
   '-C': 'cwd',
   '--home': 'home',
   '--provider': 'provider',
+  '--port': 'port',
+  '--host': 'host',
 }
 
 /**
@@ -130,11 +140,15 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     }
 
     if (token.startsWith('-') && token !== '-') throw new UsageError(`unknown option: ${token}`)
-    // Subcomando de listagem: `dsh models` equivale a `dsh --models`.
+    // Subcomandos: `dsh models` equivale a `dsh --models`, e o mesmo para `web`.
     // (Depois de `--` o token fica prompt — `dsh -- models ...` escreve mesmo
     // "models" ao modelo.)
     if (token === 'models' && positional.length === 0 && !args.models) {
       args.models = true
+      continue
+    }
+    if (token === 'web' && positional.length === 0 && !args.web) {
+      args.web = true
       continue
     }
     positional.push(token)
@@ -153,19 +167,23 @@ export const HELP = `dsh — Open Harness (recriação)
 Uso:
   dsh [opções] <prompt>
   dsh models [opções]
+  dsh web [opções]
 
 Comandos:
   (nenhum)          Corre um turno com o prompt indicado
   models            Lista os provedores ligados e os modelos disponíveis
+  web               Sobe o host web local (http://127.0.0.1:3080)
 
 Opções:
-  -p, --profile <nome>   Perfil a arrancar (default: ${HEADLESS_PROFILE})
+  -p, --profile <nome>   Perfil a arrancar (default: ${HEADLESS_PROFILE}, ou ${WEB_PROFILE} em \`web\`)
   -m, --model <ref>      Modelo a usar: <provedor>/<modelo> (ex.: openai/gpt-5.4)
                          (default: o do perfil)
       --provider <id>    Com \`models\`: mostra só esse provedor
   -s, --system <texto>   Substitui o system prompt
   -C, --cwd <dir>        Directorio de trabalho do agente (default: o cwd)
       --home <dir>       Home de dados (default: ~/.open-harness)
+      --port <n>         Com \`web\`: porta do servidor (default: 3080; 0 = livre)
+      --host <addr>      Com \`web\`: endereço de escuta (default: 127.0.0.1)
       --offline          Corre sem rede com um modelo de demonstração
                          (escreve README.md para exercitar tools + persistência)
   -v, --verbose          Diagnóstico em stderr (passos, tools, sessão)
@@ -185,22 +203,12 @@ Exemplos:
   dsh --model openai/gpt-5.4 "explique este repositório"
   dsh models
   dsh models --provider openrouter
+  dsh web --port 3080
+  dsh web --offline --port 0
 
 Sessão: <home>/sessions/<workspace>/<id>/session.v4.jsonl.zstd
 Home:   OPEN_HARNESS_HOME (ou OHSH_HOME), por omissão ~/.open-harness
 `
-
-/** Versão lida do `package.json` da app (best-effort). */
-export function readVersion(): string {
-  try {
-    const pkg = join(cliPackageRoot(), 'package.json')
-    if (!existsSync(pkg)) return '0.0.0'
-    const raw = JSON.parse(readFileSync(pkg, 'utf8')) as { version?: string }
-    return raw.version ?? '0.0.0'
-  } catch {
-    return '0.0.0'
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Modo offline
@@ -226,6 +234,28 @@ export function offlineAdapter(cwd: string, prompt: string): ScriptedAdapter {
     scriptedWrite('README.md', body),
     scriptedText(`README.md escrito em ${cwd} (modo --offline: sem chamadas de rede).`),
   ])
+}
+
+/**
+ * Adapter offline para `dsh web`.
+ *
+ * A CLI de turno tem uma fila finita de respostas; o servidor web tem turnos
+ * ilimitados, por isso o adapter vem com uma resposta fixa de reserva — o
+ * turno devolve sempre algo legível em vez de terminar vazio.
+ */
+export function offlineWebAdapter(cwd: string): ScriptedAdapter {
+  return new ScriptedAdapter(
+    [],
+    scriptedText(`Resposta offline em ${cwd} (modo --offline: sem chamadas de rede).`),
+  )
+}
+
+/** Analisa `--port`; `undefined` quando ausente, `null` quando inválido. */
+function parsePort(raw: string | undefined): number | null | undefined {
+  if (raw === undefined) return undefined
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 0 || value > 65535) return null
+  return value
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +368,7 @@ export async function runCli(argv: readonly string[], options: RunCliOptions = {
   // `models` não precisa de prompt — tem de ser verificado antes dessa falta.
   if (args.models) {
     const { registry, profile } = loadAgentRegistry({
-      profile: args.profile,
+      profile: args.profile || HEADLESS_PROFILE,
       ...(args.home !== undefined ? { homeDir: args.home } : {}),
     })
     if (args.provider && !registry.get(args.provider)) {
@@ -352,6 +382,36 @@ export async function runCli(argv: readonly string[], options: RunCliOptions = {
     for (const line of listing) out(line)
     return 0
   }
+  // `web` não precisa de prompt — arranca o host e fica à espera de Ctrl+C.
+  if (args.web) {
+    const port = parsePort(args.port)
+    if (port === null) {
+      log('dsh: --port tem de ser um número entre 0 e 65535')
+      return 2
+    }
+    try {
+      const webOptions: WebOptions = {
+        profile: args.profile || WEB_PROFILE,
+        ...(port !== undefined ? { port } : {}),
+        ...(args.host !== undefined ? { host: args.host } : {}),
+        ...(args.model !== undefined ? { model: args.model } : {}),
+        ...(args.system !== undefined ? { system: args.system } : {}),
+        ...(args.home !== undefined ? { homeDir: args.home } : {}),
+        ...(args.cwd !== undefined ? { cwd: args.cwd } : {}),
+        ...(args.offline ? { adapter: offlineWebAdapter(args.cwd ?? process.cwd()) } : {}),
+        // O anúncio de arranque (URL e token) passa sempre pelo `log` — sem
+        // ele ninguém adivinha onde o servidor ficou a escutar.
+        log,
+        ...(options.signal ? { signal: options.signal } : {}),
+      }
+      await runWeb(webOptions)
+      return 0
+    } catch (error) {
+      log(`dsh: ${error instanceof Error ? error.message : String(error)}`)
+      if (args.verbose && error instanceof Error && error.stack) log(error.stack)
+      return 1
+    }
+  }
   if (!args.prompt) {
     log('dsh: falta o prompt')
     log('corra `dsh --help` para ver as opções')
@@ -364,7 +424,7 @@ export async function runCli(argv: readonly string[], options: RunCliOptions = {
   try {
     const result: RunResult = await runPrompt({
       prompt: args.prompt,
-      profile: args.profile,
+      profile: args.profile || HEADLESS_PROFILE,
       ...(args.model !== undefined ? { model: args.model } : {}),
       ...(args.system !== undefined ? { system: args.system } : {}),
       ...(args.home !== undefined ? { homeDir: args.home } : {}),

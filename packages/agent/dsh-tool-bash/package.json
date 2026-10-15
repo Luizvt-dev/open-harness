@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-tool-bash",
   "version": "0.1.0",
   "description": "Tool de shell do agente: execução de comandos com timeout e limites",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

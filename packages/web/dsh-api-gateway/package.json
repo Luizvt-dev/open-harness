@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-api-gateway",
   "version": "0.1.0",
   "description": "Gateway RPC do host: unary + streams multiplexados sobre WebSocket, heartbeat, uplink e RemoteError",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

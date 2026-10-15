@@ -190,12 +190,24 @@ importers:
       '@open-harness/dsh-agent-loop':
         specifier: workspace:*
         version: link:../../packages/agent/dsh-agent-loop
+      '@open-harness/dsh-api-gateway':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-api-gateway
+      '@open-harness/dsh-api-remotes':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-api-remotes
+      '@open-harness/dsh-host-webserver':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-host-webserver
       '@open-harness/dsh-llm':
         specifier: workspace:*
         version: link:../../packages/llm/dsh-llm
       '@open-harness/dsh-provider':
         specifier: workspace:*
         version: link:../../packages/llm/dsh-provider
+      '@open-harness/dsh-session':
+        specifier: workspace:*
+        version: link:../../packages/session/dsh-session
       '@open-harness/dsh-tool-bash':
         specifier: workspace:*
         version: link:../../packages/agent/dsh-tool-bash
@@ -217,6 +229,10 @@ importers:
       yaml:
         specifier: ^2.8.1
         version: 2.9.1
+    devDependencies:
+      '@open-harness/dsh-client-connection':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-connection
 
   packages/agent/dsh-agent:
     dependencies:
@@ -378,6 +394,27 @@ importers:
       '@open-harness/dsh-session-format':
         specifier: workspace:*
         version: link:../dsh-session-format
+
+  packages/web/dsh-api-gateway: {}
+
+  packages/web/dsh-api-remotes:
+    dependencies:
+      '@open-harness/dsh-api-gateway':
+        specifier: workspace:*
+        version: link:../dsh-api-gateway
+
+  packages/web/dsh-client-connection:
+    dependencies:
+      '@open-harness/dsh-api-gateway':
+        specifier: workspace:*
+        version: link:../dsh-api-gateway
+    devDependencies:
+      '@open-harness/dsh-api-remotes':
+        specifier: workspace:*
+        version: link:../dsh-api-remotes
+      '@open-harness/dsh-host-webserver':
+        specifier: workspace:*
+        version: link:../dsh-host-webserver
 
   packages/web/dsh-host-webserver:
     dependencies:

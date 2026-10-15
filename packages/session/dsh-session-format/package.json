@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-session-format",
   "version": "0.1.0",
   "description": "Formato de sessão versionado (catálogo v0..v4) com migrações",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

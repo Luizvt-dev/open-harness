@@ -1,16 +1,19 @@
-# Open Harness (dsh) — Recriação
+# Open Harness (dsh)
+
+[![CI](https://github.com/Luizvt-dev/open-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Luizvt-dev/open-harness/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Recriação do **DeepSeek Harness** a partir do documento de análise
 `DeepSeek Harness - Plano de Recriacao.md`. Monorepo funcional que segue o
 sistema do dsh: **kernel de plugins (cordis) + composição declarativa de
-perfis por camadas de patch YAML**.
+perfis por camadas de patch YAML**, com implementação própria, escopo npm
+`@open-harness/*` e comentários/README em português.
 
-> **Escopo desta entrega: Fase 0 + Fase 1 + Fase 2** do plano (fundação,
-> kernel de perfis/composição e núcleo do agente com a CLI `dsh`), mais o
+> **Escopo desta entrega (v0.1.0):** Fases 0, 1 e 2 do plano (fundação,
+> kernel de perfis/composição e núcleo do agente com a CLI `dsh`), o
 > **sistema de provedores múltiplos** (registry + catálogo + adapters por
-> protocolo, à maneira do `provider:` do OpenCode). As fases seguintes
-> (superfície web, shell desktop, runtime embarcado, paridade avançada)
-> estão no roadmap.
+> protocolo) e a **Fase 3 em transporte**: servidor web local, gateway RPC e
+> cliente de ligação. A UI da superfície web segue no roadmap.
 
 ## Estado
 
@@ -20,29 +23,77 @@ perfis por camadas de patch YAML**.
 | 1 — Perfis e composição (bundles, patch YAML, HMR) | ✅ concluída |
 | 2 — Núcleo do agente (LLM, tools, loop, sessão, CLI) | ✅ concluída |
 | 2+ — Provedores múltiplos (registry, catálogo, adapters) | ✅ concluída |
-| 3 — Superfície Web + transporte | ⏳ planeada |
+| 3 — Superfície Web + transporte | 🟡 transporte concluído (UI em curso) |
 | 4 — Shell Desktop (Electron) | ⏳ planeada |
 | 5 — Runtime embarcado + Skills Office | ⏳ planeada |
 | 6 — Paridade avançada e operação | ⏳ planeada |
 
-## Arranque rápido
+## Requisitos
+
+- **Node ≥ 24** (usa `node:zlib` nativo para Zstd e CRC32)
+- **pnpm 12** (workspaces)
+- TypeScript 7 (nativo) e Vitest 5 — instalados pelo próprio `pnpm install`
+
+## Instalação
 
 ```bash
-pnpm install       # liga os pacotes do workspace
-pnpm check         # typecheck (build + testes) e 265 testes
-pnpm test          # só os testes
-pnpm build         # tsc -b de todos os pacotes (composite)
+git clone https://github.com/Luizvt-dev/open-harness.git
+cd open-harness
 
-# CLI (precisa da chave para correr com o modelo real)
-pnpm dsh --profile headless "crie um README"
-pnpm dsh --offline -v "crie um README"   # sem rede: exercita tools + sessão
-pnpm dsh models                          # provedores ligados e modelos
-pnpm dsh --model openai/gpt-5.4 "olá"    # escolher provedor por referência
+pnpm install      # liga os pacotes do workspace
+pnpm check        # typecheck (build + testes) + suite completa
+pnpm build        # tsc -b de todos os pacotes (composite)
 ```
 
-Requer Node ≥ 24 e pnpm 12. As chaves vão no ambiente (`DEEPSEEK_API_KEY`,
-`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, …); o home de dados
-em `OPEN_HARNESS_HOME` (default `~/.open-harness`).
+`pnpm check` é a porta de entrada da CI: `tsc -b` → `tsc -p tsconfig.test.json`
+→ `vitest run`. Neste momento corre **343 testes em 29 ficheiros**.
+
+## Uso
+
+### CLI `dsh`
+
+```bash
+pnpm dsh --profile headless "crie um README"   # turno real (precisa de API key)
+pnpm dsh --offline -v "crie um README"         # sem rede: tools + sessão
+pnpm dsh models                               # provedores e modelos do perfil
+pnpm dsh --model openai/gpt-5.4 "olá"          # escolher provedor por referência
+```
+
+As chaves vão no ambiente (`DEEPSEEK_API_KEY`, `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, …). O home de dados é
+`OPEN_HARNESS_HOME` (ou `OHSH_HOME`), por omissão `~/.open-harness`.
+
+### Servidor web `dsh web`
+
+```bash
+pnpm dsh web                       # http://127.0.0.1:3080 com token gerado
+pnpm dsh web --port 0              # porta livre (efémera)
+pnpm dsh web --offline --port 0    # sem rede, para testar o transporte
+```
+
+O comando sobe o perfil `web` (bundle `apps/dsh/bundles/web`): servidor HTTP
+local com **auth por token obrigatório**, estático com SPA fallback, e um
+gateway RPC único servido por três caminhos — `POST /api/remote` (unary),
+`POST /api/remote/stream` (SSE) e WebSocket `/api/remote.mux` (RPC
+multiplexado com heartbeat). O token e o URL são anunciados no arranque.
+
+### Cliente de ligação
+
+```ts
+import { createClient } from '@open-harness/dsh-client-connection'
+
+const client = createClient({ url: 'http://127.0.0.1:3080', token })
+await client.whenOpen()
+
+const session = await client.call('session.create', {})
+for await (const event of client.stream('job.run', { sessionId: session.id, text: 'olá' })) {
+  console.log(event)
+}
+```
+
+O cliente usa os globals `WebSocket`/`fetch` (zero dependências), reconecta
+com backoff exponencial + jitter e encaminha o caminho HTTP/SSE quando o
+WebSocket falha.
 
 ## Estrutura
 
@@ -75,8 +126,15 @@ packages/
     dsh-tool-bash/        # bash/pwsh por plataforma, timeout, AbortSignal
     dsh-agent-loop/       # AgentLoop: checkpoint antes de cada request
     dsh-agent/            # plugin cordis: publica o serviço `agent`
+  web/
+    dsh-host-webserver/   # servidor local: estático+SPA, compressão, auth e upgrade WS
+    dsh-api-gateway/      # Gateway RPC, MuxConnection, createHttpRpc, RemoteError
+    dsh-api-remotes/      # controllers: session, job, workspace, settings, stubs
+    dsh-client-connection/# cliente do browser: MuxClient, HttpClient, createClient
 apps/
   dsh/                    # CLI `dsh`: perfis, overlay de runtime, modo offline
+    bundles/headless/     # perfil sem UI (agente + tools)
+    bundles/web/          # perfil com servidor web (agente + tools + webserver)
 ```
 
 ### O kernel (cordis)
@@ -108,177 +166,114 @@ Regras:
 - o manifesto do perfil (`package.json` → `dsh.profile.bundles`) lista os
   bundles; entradas `{ name, required: false }` são opcionais (`onSkip`).
 
-### Patch YAML e `!!js`
-
-```yaml
-# cordis.patch.yml
-hot:
-  plugin: ./hot-plugin.mjs   # string = atalho para plugin
-  config:
-    value: !!js process.platform == 'win32' ? 'win' : 'unix'
-off:
-  plugin: ./algo.mjs
-  enabled: false             # saltado, reportado como 'disabled'
-cfg-only:
-  plugin: null               # linha só-de-config ('config-only')
-```
-
-As expressões `!!js` são avaliadas **no boot** (não em compilação) no escopo
-global — os ficheiros de patch são configuração local de confiança.
+As expressões `!!js` do patch YAML são avaliadas **no boot** (não em
+compilação) no escopo global — os ficheiros de patch são configuração local
+de confiança.
 
 ### HMR (critério de aceite da Fase 1)
 
-`Hmr` serializa reloads (nunca em paralelo) e agrega (*coalescing*) os
-triggers que chegam durante um reload activo. `PluginLoader.update()` faz o
-diff por assinatura + fingerprint de config:
-
-- só a config mudou e o plugin tem `reconfigure` → **actualização quente**
-  (sem reiniciar a fibra);
-- plugin/grupo/inject mudaram ou não há `reconfigure` → reinício da linha;
-- linhas removidas/desabilitadas → dispose.
-
+`Hmr` serializa reloads (nunca em paralelo) e agrega os triggers que chegam
+durante um reload activo. `PluginLoader.update()` faz o diff por assinatura +
+fingerprint de config: só a config mudou e há `reconfigure` → **actualização
+quente**; caso contrário reinício da linha; linhas removidas → dispose.
 Ou seja: **escrever no `cordis.patch.yml` altera configs sem reiniciar o
 processo**.
 
-## Núcleo do agente (Fase 2)
+### Núcleo do agente (Fase 2)
 
-### LLM
-
-- `dsh-llm` — contrato Anthropic-like (`LlmMessage`/`ContentBlock`/
-  `LlmRequest`/`LlmResponse`), erros tipados (`LlmAbortedError`,
-  `LlmNetworkError`, `LlmTimeoutError`, `errorFromStatus`), retry com backoff,
-  `TokenMeter`, `LlmClient` (retry + `collectStream` + `coalesceText`),
-  `SseParser` (enquadramento SSE comum a todos os protocolos) e
-  `AnthropicAdapter` (wire da Anthropic, com `validateModel`/`limits`
-  injectáveis).
-- `dsh-llm-deepseek` — `DeepSeekAdapter`, o preset DeepSeek do protocolo
-  Anthropic: fixa endpoint `https://api.deepseek.com/anthropic`, versão,
-  limites e validação do catálogo (`requireModel`). **Não** usamos SDKs.
-- `dsh-provider` — o sistema de provedores, descrito abaixo.
-
-### Sistema de provedores múltiplos
-
-Inspirado no bloco `provider:` do OpenCode: a configuração diz **que** fala com
-o modelo; o registry decide **como**.
-
-- **Referências** `provedor/modelo` — `openai/gpt-5.4`, ou só `gpt-5.4` (usa o
-  provedor default `deepseek`). O split é no **primeiro** `/`, por isso
-  `openrouter/anthropic/claude-sonnet-4.5` funciona.
-- **Catálogo embutido** (o análogo local ao models.dev, valores reais):
-  `deepseek`, `anthropic`, `openai`, `google`, `openrouter`, `groq` e
-  `ollama`, com contexto, saída, custo, tools e modalidades. Determinístico e
-  offline; o perfil pode estendê-lo ou sobrepor qualquer entrada.
-- **Protocolos** (`api`): `anthropic-messages`, `openai-chat`
-  (usa `max_completion_tokens`), `openai-compatible` (OpenRouter, Groq,
-  Ollama, vLLM — usa `max_tokens`) e `google-generate` (Gemini).
-- **Chaves**: literal, `{ env: VAR }` ou `{ file: caminho }`, com as variáveis
-  do catálogo embutido como fallback. Sem chave, o erro diz o provedor e a
-  variável em falta (`missing API key for provider "openai" (set OPENAI_API_KEY)`)
-  — a criação é *lazy*, por isso o boot não rebenta por isso.
-- **Modelos fora do catálogo** são aceites (o próprio endpoint diz se existem)
-  com defaults conservadores; com `strict: true` falham cedo e listam o que
-  existe.
-
-```yaml
-# cordis.patch.yml do perfil
-agent:
-  config:
-    model: interno/modelo-7b
-    providers:
-      interno:
-        name: LLM interno
-        api: openai-compatible
-        baseURL: http://llm.interno:8000/v1
-        apiKey: { env: INTERNO_API_KEY }
-        models:
-          modelo-7b: { contextWindow: 32000, maxTokens: 8192, toolCall: true }
-```
-
-`dsh models` mostra o resultado desta composição (provedores, protocolo, chave
-em falta e as referências prontas a usar), **sem exigir API key** — lê o
-perfil composto em vez de criar o serviço `agent`.
-
-### Sessão
-
-- Formato **v4 canónico**; v0–v3 são reconstruções documentadas
-  (`KNOWN_VERSIONS`, `MIGRATIONS`, `migrateToCurrent`).
-- Persistência em frames `<crc32>$<base64>` — o CRC32 (nativo) cobre o payload
-  **já comprimido** com o Zstd também nativo; um corte abrupto deixa só o
-  último frame incompleiro, descartado no load (*torn-tail*).
-- Caminho: `<home>/sessions/<workspace>/<session-id>/session.v4.jsonl.zstd`,
-  com `encodeWorkspace` a trocar `\` e `:` por `-`.
-
-### Loop e tools
-
-- `AgentLoop` faz **checkpoint + persistência antes de cada request**; um erro
-  de tool vira `isError` sem abortar o turno; `maxStepsPerTurn` sinaliza
+- **LLM** — contrato Anthropic-like com erros tipados, retry/backoff,
+  `TokenMeter`, `SseParser` e `AnthropicAdapter`; `DeepSeekAdapter` é o
+  preset DeepSeek (endpoint `https://api.deepseek.com/anthropic`).
+  **Não** usamos SDKs oficiais de provedor.
+- **Provedores múltiplos** — referências `provedor/modelo`, catálogo embutido
+  determinístico (`deepseek`, `anthropic`, `openai`, `google`, `openrouter`,
+  `groq`, `ollama`), protocolos `anthropic-messages`, `openai-chat`,
+  `openai-compatible` e `google-generate`, chaves por literal/`env`/`file`
+  com erro exacto a indicar a variável em falta.
+- **Sessão** — formato **v4 canónico** com migrações v0–v3, persistência em
+  frames `<crc32>$<base64>` sobre Zstd, caminho
+  `<home>/sessions/<workspace>/<id>/session.v4.jsonl.zstd`.
+- **Loop e tools** — checkpoint e persistência **antes de cada request**;
+  erro de tool vira `isError` sem abortar o turno; `maxStepsPerTurn` sinaliza
   `stoppedByLimit`.
-- `ToolRegistry.execute` devolve `{ok:true,result}` ou `{ok:false,error}` —
-  nunca propaga um throw da tool para fora do loop.
-- O `tool_result` grava em `toolUseId` **o id do bloco `tool_use`** (não o nome
-  da tool): é o que volta ao wire como `tool_use_id` no passo seguinte.
 
-### CLI `dsh` (critério de aceite da Fase 2)
+### Transporte web (Fase 3)
 
-```bash
-pnpm dsh --profile headless "crie um README"
-```
+- **Protocolo "Typert Remote" v1** — JSON sobre WebSocket; o `id` multiplexa
+  chamadas *unary* e *streams* na mesma ligação; heartbeat ping/pong fecha no
+  4000; versão errada fecha no 4001; o único erro no fio é `RemoteError`.
+- **Caminhos paralelos** — o mesmo gateway serve HTTP (`/api/remote`) e SSE
+  (`/api/remote/stream`, eventos `open|data|end|error`) com os mesmos
+  códigos de erro do WebSocket.
+- **Auth** — token obrigatório em todas as rotas, por `Authorization:
+  Bearer` ou `?access_token=` (necessário no handshake WS), comparado com
+  `timingSafeEqual`.
+- **Sessões** — cada sessão web é um agente irmão: mesmo modelo, system
+  prompt, adapter e tools do perfil, mas histórico e ficheiro próprios.
 
-1. materializa `~/.open-harness/profiles/headless` apontando ao bundle
-   `apps/dsh/bundles/headless` (manifesto gerado, idempotente);
-2. lê a configuração composta do perfil (`readAgentConfig`) e escreve
-   `~/.open-harness/runtime/overlay.yml` com essa herança **mais** as
-   sobrescritas da linha de comandos (`--home/--model/--system/--cwd`) —
-   overlay porque só declara `config:`, deixando o `requireDir` da linha no
-   bundle. Como o `config` é substituído por inteiro pela camada mais alta,
-   sem esta herança o `--model` sozinho apagaria o `system` do bundle;
-3. `bootApp` compõe `bundles → perfil → home → overlay` e aplica as linhas no
-   cordis: `agent` (plugin `dsh-agent`) e `cli-tools` (com `requires: ['agent']`);
-4. resolve o serviço `agent` e corre um turno — tools reais, sessão persistida
-   em zstd — e imprime a resposta final.
+## Testes
 
-`--offline` troca o transporte por um `ScriptedAdapter` determinístico (escreve
-o `README.md` e fecha o turno), para exercitar o pipeline inteiro sem rede.
-`dsh models` (ou `--models`) lista provedores e modelos; `--provider <id>`
-filtra.
+`pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
+(**343 testes / 29 ficheiros**): kernel (cordis, loader), composição
+(profile-boot), arranque (app-boot), HMR, home-paths, LLM, provedores, sessão
+(formato, `Session`, persistência zstd), tools, loop, serviço `agent`, a
+**CLI `dsh`** (incluindo o teste de aceite da Fase 2 que corre
+`dsh --profile headless "crie um README"` de ponta a ponta) e a **aceitação
+da Fase 3** — `dsh web` a subir um servidor real e um cliente Node a falar
+com ele por WebSocket e HTTP/SSE, sem navegador.
 
-## Decisões conscientes (divergências do plano)
+## Roadmap (Fases 3–6)
 
-- **Home de dados**: `OPEN_HARNESS_HOME` / `OHSH_HOME` → default
-  `~/.open-harness`. **Não lê `DSH_HOME`** de propósito, para não colidir com
-  um DeepSeek Harness real instalado na mesma máquina.
-- **Escopo npm**: `@open-harness/*`, mantendo os nomes de pacotes do sistema
-  original (`cosmokit`, `schemastery`, `cordis`, `cordis-plugin-loader`,
-  `home-paths`, `profile-boot`, `app-boot`, `hmr`), com implementação própria.
-- Stack: TypeScript 7 (nativo), Vitest 5, pnpm workspaces, ESM estrito.
-- **Provedores**: o catálogo é **local e determinístico** (valores reais
-  extraídos do models.dev, mas sem fetch remoto no arranque) e os adapters são
-  implementação própria — nenhum SDK oficial de provedor é usado.
-- **Novo pacote `dsh-provider`**: não existe no sistema original (que era
-  mono-provedor); é a camada que traz a forma do `provider:` do OpenCode para
-  o mesmo mecanismo de perfis.
-
-## Roadmap (Fases 3–6, resumo do plano)
-
-- **Fase 3 — Superfície Web + transporte**: UI web do harness, transporte
-  (IPC/streaming) entre host e renderer.
+- **Fase 3 — Superfície Web**: UI web do harness por cima do transporte já
+  entregue.
 - **Fase 4 — Shell Desktop**: Electron com fuses endurecidos, preload mínimo.
 - **Fase 5 — Runtime embarcado + Skills Office**: runtime incorporado e skills
   de documentos Office.
 - **Fase 6 — Paridade avançada e operação**: telemetria, actualização,
   hardening e paridade restante com o dsh observado.
-- Continua por criar em Fase 2: `dsh-system-prompt`/`dsh-persona` (hoje o
-  system prompt vive no bundle `headless`) e mais tools do catálogo.
+- Continua por criar: `dsh-system-prompt`/`dsh-persona` (hoje o system prompt
+  vive no bundle) e mais tools do catálogo.
 
-## Testes
+## Como contribuir
 
-`pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
-(**265 testes / 24 ficheiros**): kernel (cordis, loader), composição
-(profile-boot), arranque (app-boot), HMR (unit + integração — critério de
-aceite da Fase 1), home-paths, LLM (`dsh-llm`, `dsh-llm-deepseek`), provedores
-(`dsh-provider`: refs, catálogo, registry e os três adapters com `fetch`
-falso), sessão (formato, `Session`, persistência zstd), tools (`dsh-tools`,
-fs, search, bash), loop (`dsh-agent-loop`), serviço `agent` multi-provedor e a
-**CLI `dsh`** — incluindo o teste de aceite da Fase 2 que corre
-`dsh --profile headless "crie um README"` de ponta a ponta e verifica a tool
-executada, o `session.v4.jsonl.zstd` e a resposta final.
+1. **Fork e branch** — crie uma branch a partir de `main`
+   (`git checkout -b feat/minha-melhoria`).
+2. **Antes de commitar** — `pnpm check` tem de ficar verde (typecheck de
+   build, typecheck dos testes e suite completa). Um PR sem checks verdes não
+   é revisto.
+3. **Estilo** — ESM estrito, TypeScript 7 nativo, sem dependências novas sem
+   justificação; comentários e documentação em português, seguindo o padrão
+   dos pacotes existentes (explicar o *porquê*, não o *qué*).
+4. **Testes** — toda a mudança de comportamento leva teste; os testes de
+   aceite vivem em `*/test/*.test.ts` e correm no CI.
+5. **Commits** — mensagens no formato Conventional Commits
+   (`feat:`, `fix:`, `docs:`, `testes:`, `refactor:`).
+6. **PR** — descreva o problema, a abordagem e como testou; mantenha o diff
+   focado num tema.
+
+### Estrutura dos pacotes
+
+Cada pacote é um workspace com `package.json` (`@open-harness/…`), `src/`,
+`test/` e `tsconfig.json` *composite*. Os alias `@open-harness/*` estão em
+sincronia em três sítios — `vitest.config.ts`, `tsconfig.test.json` e as
+`references` do `tsconfig.json` — e novos pacotes têm de ser registados nos
+três.
+
+## Licença e Direitos Autorais
+
+Este projecto é licenciado sob a **Apache License, Version 2.0** — texto
+integral no ficheiro [LICENSE](LICENSE).
+
+- **Copyright 2026 Luiz Fernando De Souza Neves (@Luizvt-dev).**
+- Os créditos de autoria original estão no ficheiro [NOTICE](NOTICE), exigido
+  pela **Secção 4d** da Apache 2.0.
+- **Qualquer redistribuição ou versão modificada deste projecto deve manter o
+  aviso de atribuição do ficheiro `NOTICE` intacto e legível**, conforme a
+  mesma Secção 4d. Remover ou alterar esses créditos viola os termos da
+  licença.
+- Ao contribuir, você aceita que as suas contribuições sejam licenciadas sob
+  a Apache License 2.0, nos termos da **Secção 5** (Submission of
+  Contributions).
+
+O ficheiro `NOTICE` deve ser incluído em qualquer distribuição binária ou
+derivada, junto do `LICENSE`.

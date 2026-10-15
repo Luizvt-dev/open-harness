@@ -67,12 +67,22 @@ export class AgentLoop {
 
   /** Com observador ligado, o loop fala o protocolo de stream do provedor. */
   private get streaming(): boolean {
-    return this.onEvent !== undefined
+    return (this.turnObserver ?? this.onEvent) !== undefined
   }
 
   private emit(event: LoopEvent): void {
-    this.onEvent?.(event)
+    ;(this.turnObserver ?? this.onEvent)?.(event)
   }
+
+  /**
+   * Observador do turno em curso.
+   *
+   * O loop dá suporte a observador fixo (construção) e a um por turno — a
+   * superfície web precisa do segundo: cada sessão é um agente próprio e cada
+   * visualizador pode querer a sua subscrição. Os turnos de uma sessão são
+   * sequenciais, por isso há no máximo um activo de cada vez.
+   */
+  private turnObserver?: (event: LoopEvent) => void
 
   /** Tools expostas ao modelo (snapshot actual do registry). */
   get toolSpecs(): LlmToolSpec[] {
@@ -80,9 +90,13 @@ export class AgentLoop {
   }
 
   /** Regista a mensagem do utilizador e corre um turno completo. */
-  async runTurn(userText: string, signal?: AbortSignal): Promise<TurnOutcome> {
+  async runTurn(
+    userText: string,
+    signal?: AbortSignal,
+    onEvent?: (event: LoopEvent) => void,
+  ): Promise<TurnOutcome> {
     this.session.addUser(userText, this.clock.now())
-    return await this.nextTurn(signal)
+    return await this.nextTurn(signal, onEvent)
   }
 
   /**
@@ -90,7 +104,16 @@ export class AgentLoop {
    * é um *step*: checkpoint → request LLM → (se pedir tools) executa e persiste,
    * senão devolve a resposta.
    */
-  async nextTurn(signal?: AbortSignal): Promise<TurnOutcome> {
+  async nextTurn(signal?: AbortSignal, onEvent?: (event: LoopEvent) => void): Promise<TurnOutcome> {
+    this.turnObserver = onEvent
+    try {
+      return await this.runSteps(signal)
+    } finally {
+      this.turnObserver = undefined
+    }
+  }
+
+  private async runSteps(signal?: AbortSignal): Promise<TurnOutcome> {
     const toolExecutions: ToolExecResult[] = []
     const traces: TurnTrace[] = []
     let text = ''

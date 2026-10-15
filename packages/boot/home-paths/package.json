@@ -2,7 +2,7 @@
   "name": "@open-harness/home-paths",
   "version": "0.1.0",
   "description": "Resolução do home de dados ($OPEN_HARNESS_HOME | ~/.open-harness) e subcaminhos canónicos",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

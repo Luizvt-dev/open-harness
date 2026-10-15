@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify } from 'yaml'
@@ -6,6 +6,9 @@ import { composeProfile, defaultProfileDir } from '@open-harness/profile-boot'
 
 /** Nome do perfil headless embutido na CLI. */
 export const HEADLESS_PROFILE = 'headless'
+
+/** Nome do perfil web embutido na CLI (`dsh web`). */
+export const WEB_PROFILE = 'web'
 
 /**
  * Raiz do pacote da CLI. `dist/profile.js` → um nível acima → raiz, onde
@@ -19,6 +22,29 @@ export function cliPackageRoot(): string {
 /** Directório do bundle headless (o `cordis.patch.yml` que compõe o arranque). */
 export function headlessBundleDir(): string {
   return join(cliPackageRoot(), 'bundles', 'headless')
+}
+
+/** Directório do bundle web (`dsh web`). */
+export function webBundleDir(): string {
+  return join(cliPackageRoot(), 'bundles', 'web')
+}
+
+/** Perfis materializados pela própria CLI (bundle embutido na app). */
+const BUILTIN_PROFILES: Record<string, () => string> = {
+  [HEADLESS_PROFILE]: headlessBundleDir,
+  [WEB_PROFILE]: webBundleDir,
+}
+
+/** Versão da CLI (lida do `package.json` do pacote). */
+export function readVersion(): string {
+  try {
+    const pkg = join(cliPackageRoot(), 'package.json')
+    if (!existsSync(pkg)) return '0.0.0'
+    const raw = JSON.parse(readFileSync(pkg, 'utf8')) as { version?: string }
+    return raw.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
 }
 
 export interface EnsureProfileOptions {
@@ -40,9 +66,10 @@ export interface ProfileHandle {
 /**
  * Garante que o perfil existe.
  *
- * - `headless` é **materializado pela CLI**: escreve o manifesto apontando ao
- *   bundle embutido. É idempotente — reescreve sempre o manifesto para que um
- *   upgrade da CLI siga o bundle novo, mas nunca toca noutras camadas.
+ * - `headless` e `web` são **materializados pela CLI**: escrevem o manifesto a
+ *   apontar ao bundle embutido. É idempotente — reescrevem sempre o manifesto
+ *   para que um upgrade da CLI siga o bundle novo, mas nunca tocam noutras
+ *   camadas.
  * - qualquer outro nome tem de existir previamente (é perfil do utilizador).
  */
 export function ensureProfile(options: EnsureProfileOptions): ProfileHandle {
@@ -50,16 +77,21 @@ export function ensureProfile(options: EnsureProfileOptions): ProfileHandle {
   const profileDir = defaultProfileDir(name, options.homeDir)
   const existed = existsSync(profileDir)
 
-  if (name !== HEADLESS_PROFILE) {
+  const bundleOf = BUILTIN_PROFILES[name]
+  if (!bundleOf) {
     if (!existed) {
-      throw new Error(`profile not found: ${profileDir} (only "${HEADLESS_PROFILE}" is materialised by the CLI)`)
+      throw new Error(
+        `profile not found: ${profileDir} (only ${Object.keys(BUILTIN_PROFILES)
+          .map((builtin) => `"${builtin}"`)
+          .join(', ')} are materialised by the CLI)`,
+      )
     }
     return { profileDir, existed }
   }
 
-  const bundleDir = resolve(options.bundleDir ?? headlessBundleDir())
+  const bundleDir = resolve(options.bundleDir ?? bundleOf())
   if (!existsSync(join(bundleDir, 'cordis.patch.yml'))) {
-    throw new Error(`headless bundle not found: ${bundleDir}`)
+    throw new Error(`${name} bundle not found: ${bundleDir}`)
   }
 
   mkdirSync(profileDir, { recursive: true })
@@ -99,6 +131,8 @@ export interface RuntimeOverrides {
   model?: string
   system?: string
   cwd?: string
+  /** Sobrescritas da linha `webserver` (só para `dsh web`). */
+  web?: { port?: number; host?: string; token?: string; publicDir?: string }
 }
 
 /**
@@ -129,7 +163,20 @@ export function writeRuntimeOverlay(
   if (overrides.system !== undefined) config.system = overrides.system
   if (overrides.cwd !== undefined) config.cwd = resolve(overrides.cwd)
 
-  const doc = stringify({ agent: { config } })
+  const patch: Record<string, unknown> = { agent: { config } }
+  if (overrides.web) {
+    // Mesma regra do `agent`: a camada mais alta substitui o `config` por
+    // inteiro, por isso quem arranca `dsh web` tem de passar tudo o que
+    // importa (porta, endereço e token) — os defaults vivem no bundle e aqui
+    // confirmam-se explicitamente.
+    const webConfig: Record<string, unknown> = {}
+    if (overrides.web.port !== undefined) webConfig.port = overrides.web.port
+    if (overrides.web.host !== undefined) webConfig.host = overrides.web.host
+    if (overrides.web.token !== undefined) webConfig.token = overrides.web.token
+    if (overrides.web.publicDir !== undefined) webConfig.publicDir = overrides.web.publicDir
+    patch.webserver = { config: webConfig }
+  }
+  const doc = stringify(patch)
   const target = join(resolve(homeDir), 'runtime', 'overlay.yml')
   mkdirSync(dirname(target), { recursive: true })
   writeFileSync(

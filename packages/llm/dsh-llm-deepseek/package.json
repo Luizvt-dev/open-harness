@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-llm-deepseek",
   "version": "0.1.0",
   "description": "Adapter DeepSeek sobre API compatível com Anthropic (streaming SSE, catálogo de modelos)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

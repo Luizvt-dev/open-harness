@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-agent-loop",
   "version": "0.1.0",
   "description": "Loop do agente: turn/step, inbox, status e checkpoint antes de cada request",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

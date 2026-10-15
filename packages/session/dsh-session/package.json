@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-session",
   "version": "0.1.0",
   "description": "Sessão do agente: cabeçalho v4, registos, caminhos em disco",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

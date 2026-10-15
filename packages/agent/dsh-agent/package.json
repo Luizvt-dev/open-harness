@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-agent",
   "version": "0.1.0",
   "description": "Plugin cordis do agente: compõe LLM, tools e sessão e expõe o serviço `agent`",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

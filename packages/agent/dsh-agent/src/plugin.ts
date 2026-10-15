@@ -90,8 +90,11 @@ export const plugin = {
       get sessionPath() {
         return ensure().sessionPath
       },
-      run(prompt, signal) {
-        return ensure().run(prompt, signal)
+      get config() {
+        return ensure().config
+      },
+      run(prompt, signal, onEvent) {
+        return ensure().run(prompt, signal, onEvent)
       },
     }
 

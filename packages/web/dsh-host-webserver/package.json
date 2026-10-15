@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-host-webserver",
   "version": "0.1.0",
   "description": "Servidor web local: estático com SPA fallback, compressão, auth por token e upgrade WebSocket",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

@@ -2,7 +2,7 @@
   "name": "@open-harness/app-boot",
   "version": "0.1.0",
   "description": "Boot da aplicação: compõe o perfil, carrega o loader, reporta bundles saltados e aplica a política required/optional",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

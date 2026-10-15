@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-tool-fs-search",
   "version": "0.1.0",
   "description": "Tools de procura do agente: glob, grep",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

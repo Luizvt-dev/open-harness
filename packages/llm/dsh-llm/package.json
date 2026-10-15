@@ -2,7 +2,7 @@
   "name": "@open-harness/dsh-llm",
   "version": "0.1.0",
   "description": "Abstração LLM: adapter, streaming, retry, contabilização de tokens e anexos de imagem",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

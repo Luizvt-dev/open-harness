@@ -253,6 +253,9 @@ export function createMuxHandler(gateway: Gateway, options: MuxOptions = {}): Mu
     attach(socket: GatewaySocket): MuxConnection {
       const connection = new MuxConnection(socket, gateway, options)
       connections.add(connection)
+      // Sai do conjunto quando o socket morre — sem isto, o conjunto crescia
+      // para sempre com ligações já fechadas.
+      socket.on('close', () => connections.delete(connection))
       connection.announce()
       return connection
     },

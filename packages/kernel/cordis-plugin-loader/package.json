@@ -2,7 +2,7 @@
   "name": "@open-harness/cordis-plugin-loader",
   "version": "0.1.0",
   "description": "Loader de plugins: resolve módulos, instancia por linha e faz update/diff da árvore viva",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

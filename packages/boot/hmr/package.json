@@ -2,7 +2,7 @@
   "name": "@open-harness/hmr",
   "version": "0.1.0",
   "description": "Reload serializado + watch de manifests/patches (alterar cordis.patch.yml sem reiniciar)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

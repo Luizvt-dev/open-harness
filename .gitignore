@@ -1,7 +1,70 @@
+# ---------------------------------------------------------------------------
+# Dependências e builds (pesados, sempre regeneráveis)
+# ---------------------------------------------------------------------------
 node_modules/
+.pnpm-store/
 dist/
+build/
+out/
 *.tsbuildinfo
+
+# Ambientes virtuais Python (scripts de tooling / ferramentas auxiliares)
+.venv/
+venv/
+env/
+ENV/
+
+# ---------------------------------------------------------------------------
+# Caches e artefactos de ferramentas
+# ---------------------------------------------------------------------------
 .vitest/
+.cache/
 coverage/
-*.log
+.nyc_output/
+.eslintcache
+.turbo/
+.tmp/
+tmp/
+temp/
+
+# ---------------------------------------------------------------------------
+# Segredos, chaves e configuração local — NUNCA commitar
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+secrets/
+.secrets/
+credentials
+credentials.json
+*api_key*
+*apikey*
+*.token
+
+# Home de dados do harness (pode conter sessões, tokens e preferências locais)
+.open-harness/
+
+# ---------------------------------------------------------------------------
+# Editores e sistema
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Logs e dumps
+# ---------------------------------------------------------------------------
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*

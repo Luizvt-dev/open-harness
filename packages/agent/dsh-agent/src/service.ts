@@ -11,7 +11,7 @@ import { Session, newSessionId, sessionFilePath } from '@open-harness/dsh-sessio
 import { saveSession } from '@open-harness/dsh-session-persistence-jsonl'
 import type { SessionFile } from '@open-harness/dsh-session-format'
 import { ToolRegistry, type ToolDefinition } from '@open-harness/dsh-tools'
-import { AgentLoop, type TurnOutcome } from '@open-harness/dsh-agent-loop'
+import { AgentLoop, type LoopEvent, type TurnOutcome } from '@open-harness/dsh-agent-loop'
 import { resolveDshHome } from '@open-harness/home-paths'
 
 /** Configuração composta do plugin do agente. */
@@ -63,8 +63,20 @@ export interface AgentService {
   readonly modelRef: string
   /** Id de modelo enviado ao provider (sem o prefixo do provedor). */
   readonly model: string
-  /** Corre um turno completo e persiste a sessão no fim. */
-  run(prompt: string, signal?: AbortSignal): Promise<TurnOutcome>
+  /**
+   * Configuração com que este serviço foi criado.
+   *
+   * Serve para clonar o serviço — cada sessão da superfície web é um agente
+   * irmão, com o mesmo modelo, system prompt e registry de tools.
+   */
+  readonly config: AgentServiceConfig
+  /**
+   * Corre um turno completo e persiste a sessão no fim.
+   *
+   * `onEvent`, quando presente, observa o turno (texto a aparecer, tools a
+   * começar) — é o que a UI consome. Sem ele, o turno corre como sempre.
+   */
+  run(prompt: string, signal?: AbortSignal, onEvent?: (event: LoopEvent) => void): Promise<TurnOutcome>
   /** Caminho do ficheiro de sessão em disco. */
   readonly sessionPath: string
 }
@@ -145,8 +157,9 @@ export function createAgentService(options: AgentServiceConfig): AgentService {
     modelRef,
     model,
     sessionPath,
-    async run(prompt, signal) {
-      const outcome = await loop.runTurn(prompt, signal)
+    config: options,
+    async run(prompt, signal, onEvent) {
+      const outcome = await loop.runTurn(prompt, signal, onEvent)
       // Persistência final (o checkpoint já grava antes de cada request, mas o
       // turno pode terminar por limite sem um último flush).
       await persister.save(session.toFile())

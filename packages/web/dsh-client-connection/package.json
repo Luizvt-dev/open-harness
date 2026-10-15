@@ -1,0 +1,26 @@
+{
+  "name": "@open-harness/dsh-client-connection",
+  "version": "0.1.0",
+  "description": "Cliente do navegador para o host: RPC multiplexado sobre WebSocket, caminho fetch/SSE e reconexão com backoff",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/dsh-api-gateway": "workspace:*"
+  },
+  "devDependencies": {
+    "@open-harness/dsh-host-webserver": "workspace:*",
+    "@open-harness/dsh-api-remotes": "workspace:*"
+  }
+}

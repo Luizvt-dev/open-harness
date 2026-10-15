@@ -2,10 +2,10 @@
   "name": "@open-harness/dsh-cli",
   "version": "0.1.0",
   "description": "CLI `dsh` — arranque por perfis do Open Harness (kernel cordis + composição declarativa)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
-    "dsh": "./dist/cli.js"
+    "dsh": "./dist/main.js"
   },
   "exports": {
     ".": {
@@ -24,14 +24,21 @@
     "@open-harness/cordis": "workspace:*",
     "@open-harness/dsh-agent": "workspace:*",
     "@open-harness/dsh-agent-loop": "workspace:*",
+    "@open-harness/dsh-api-gateway": "workspace:*",
+    "@open-harness/dsh-api-remotes": "workspace:*",
     "@open-harness/dsh-llm": "workspace:*",
     "@open-harness/dsh-provider": "workspace:*",
+    "@open-harness/dsh-session": "workspace:*",
     "@open-harness/dsh-tool-bash": "workspace:*",
     "@open-harness/dsh-tool-fs": "workspace:*",
     "@open-harness/dsh-tool-fs-search": "workspace:*",
     "@open-harness/dsh-tools": "workspace:*",
+    "@open-harness/dsh-host-webserver": "workspace:*",
     "@open-harness/home-paths": "workspace:*",
     "@open-harness/profile-boot": "workspace:*",
     "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@open-harness/dsh-client-connection": "workspace:*"
   }
 }

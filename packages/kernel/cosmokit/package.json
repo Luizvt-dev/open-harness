@@ -2,7 +2,7 @@
   "name": "@open-harness/cosmokit",
   "version": "0.1.0",
   "description": "Utilidades básicas compartilhadas (deepEqual, deepClone, deferred, sleep)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {
