@@ -20,6 +20,9 @@ const aliases: Record<string, string> = {
   '@open-harness/dsh-api-gateway': local('packages/web/dsh-api-gateway/src/index.ts'),
   '@open-harness/dsh-api-remotes': local('packages/web/dsh-api-remotes/src/index.ts'),
   '@open-harness/dsh-client-connection': local('packages/web/dsh-client-connection/src/index.ts'),
+  // `/browser` antes do geral: o alias do Vite faz match por prefixo.
+  '@open-harness/dsh-client-modules/browser': local('packages/web/dsh-client-modules/src/browser.ts'),
+  '@open-harness/dsh-client-modules': local('packages/web/dsh-client-modules/src/index.ts'),
   '@open-harness/dsh-session-format': local('packages/session/dsh-session-format/src/index.ts'),
   '@open-harness/dsh-session': local('packages/session/dsh-session/src/index.ts'),
   '@open-harness/dsh-session-persistence-jsonl': local(

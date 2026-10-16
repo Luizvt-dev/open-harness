@@ -199,6 +199,9 @@ importers:
       '@open-harness/dsh-client-connection':
         specifier: workspace:*
         version: link:../../packages/web/dsh-client-connection
+      '@open-harness/dsh-client-modules':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-modules
       '@open-harness/dsh-host-webserver':
         specifier: workspace:*
         version: link:../../packages/web/dsh-host-webserver
@@ -411,6 +414,12 @@ importers:
       '@open-harness/dsh-api-remotes':
         specifier: workspace:*
         version: link:../dsh-api-remotes
+      '@open-harness/dsh-host-webserver':
+        specifier: workspace:*
+        version: link:../dsh-host-webserver
+
+  packages/web/dsh-client-modules:
+    dependencies:
       '@open-harness/dsh-host-webserver':
         specifier: workspace:*
         version: link:../dsh-host-webserver

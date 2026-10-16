@@ -27,6 +27,7 @@
     "@open-harness/dsh-api-gateway": "workspace:*",
     "@open-harness/dsh-api-remotes": "workspace:*",
     "@open-harness/dsh-client-connection": "workspace:*",
+    "@open-harness/dsh-client-modules": "workspace:*",
     "@open-harness/dsh-llm": "workspace:*",
     "@open-harness/dsh-provider": "workspace:*",
     "@open-harness/dsh-session": "workspace:*",

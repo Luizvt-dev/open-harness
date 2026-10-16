@@ -222,6 +222,44 @@ describe('dsh web (aceitação)', () => {
     }
   })
 
+  it('monta o manifesto de módulos do cliente em /__dsh_boot__.js', async () => {
+    const host = await startOffline()
+    try {
+      const cookie = { cookie: `access_token=${host.token}` }
+
+      const boot = await fetch(`${host.url}/__dsh_boot__.js`, { headers: cookie })
+      expect(boot.status).toBe(200)
+      expect(boot.headers.get('content-type')).toContain('javascript')
+      const script = await boot.text()
+      expect(script.startsWith('window.__DSH_BOOT__ = ')).toBe(true)
+
+      const manifest = JSON.parse(script.slice('window.__DSH_BOOT__ = '.length).replace(/;\n$/, '')) as {
+        version: number
+        plugins: Array<{ id: string; entry: string; slots: string[] }>
+        platform: Record<string, string>
+        combos: Array<{ url: string; plugins: string[] }>
+      }
+      expect(manifest.version).toBe(1)
+      // Hoje nenhum pacote declara `dsh.client` (os `ui-*` chegam na leva
+      // seguinte), mas o contrato já está servido e validado pelo loader.
+      expect(manifest.plugins).toEqual([])
+      expect(manifest.combos).toEqual([])
+      expect(typeof manifest.platform).toBe('object')
+
+      // A entrada browser do loader é servida e não puxa builtins.
+      const loader = await fetch(`${host.url}/client/dsh-client-modules/browser.js`, { headers: cookie })
+      expect(loader.status).toBe(200)
+      const loaderSource = await loader.text()
+      expect(loaderSource).toContain('./types.js')
+      expect(loaderSource).not.toMatch(/from ['"]node:|import ['"]node:/)
+
+      // Sem cookie continua fechado.
+      expect((await fetch(`${host.url}/__dsh_boot__.js`)).status).toBe(401)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
   it('reconstrói a conversa pelo histórico persistido', async () => {
     const host = await startOffline()
     const client = createClient({ url: host.url, token: host.token })

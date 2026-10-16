@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { existsSync, readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@open-harness/cordis'
 import { AGENT_SERVICE, type AgentService } from '@open-harness/dsh-agent'
 import { createGateway, createHttpRpc, createMuxHandler, type Gateway } from '@open-harness/dsh-api-gateway'
 import { createRemotes } from '@open-harness/dsh-api-remotes'
+import { createClientModuleRoutes, scanClientPlugins, type PlatformModules } from '@open-harness/dsh-client-modules'
 import { sendJson, serveStatic, WebServer } from '@open-harness/dsh-host-webserver'
 import { resolveDshHome } from '@open-harness/home-paths'
 import { createServiceHost } from './host.js'
@@ -36,12 +37,31 @@ function distDirOf(specifier: string): string {
  * A UI não tem bundler (nem precisa): carrega os módulos compilados do
  * próprio repositório via import map. `dsh-api-gateway` aponta para a entrada
  * `./browser` — a entrada `.` puxa `node:crypto` e não corre no navegador.
+ * O mesmo vale para `dsh-client-modules`: o scan (`node:fs`) fica em `.` e o
+ * loader lazy do navegador em `./browser`.
  */
 function clientModuleRoots(): Map<string, string> {
   return new Map([
     ['dsh-client-connection', distDirOf('@open-harness/dsh-client-connection')],
     ['dsh-api-gateway', distDirOf('@open-harness/dsh-api-gateway')],
+    ['dsh-client-modules', distDirOf('@open-harness/dsh-client-modules')],
   ])
+}
+
+/**
+ * Directórios dos pacotes do workspace, para o scan dos `dsh.client`.
+ *
+ * Lê a pasta `@open-harness` do `node_modules` da própria app: cada entrada é
+ * um pacote (symlink, no pnpm) com um `package.json` legível. Pacotes sem
+ * `dsh.client` são ignorados pelo scan.
+ */
+function workspacePackageDirs(): string[] {
+  const scopeDir = dirname(dirname(distDirOf('@open-harness/dsh-client-connection')))
+  try {
+    return readdirSync(scopeDir).map((entry) => join(scopeDir, entry))
+  } catch {
+    return []
+  }
 }
 
 /** Configuração da linha `webserver` (bundle/perfil/overlay). */
@@ -56,6 +76,11 @@ export interface WebServerConfig {
   publicDir?: string
   /** Intervalo de heartbeat (ms). Default 15 000. */
   heartbeatMs?: number
+  /**
+   * Módulos de plataforma partilhados (React/Cordis/UI base) para a tabela
+   * do boot: import specifier → URL servida. Default `{}`.
+   */
+  platformModules?: PlatformModules
   /** Observabilidade do servidor. */
   log?: (line: string) => void
 }
@@ -151,6 +176,16 @@ const plugin = {
         sendJson(res, 404, { error: { code: 'not_found', message: `no such module: ${pkg}${file}` } })
       }
     })
+
+    // Módulos de UI dos plugins (`dsh.client`): o boot em `window.__DSH_BOOT__`
+    // e as entradas em `/plugins/<id>/…`. O scan corre uma vez por arranque;
+    // os combos são gerados a partir da mesma lista.
+    const clientModules = createClientModuleRoutes({
+      plugins: scanClientPlugins(workspacePackageDirs()),
+      ...(config.platformModules ? { platform: config.platformModules } : {}),
+    })
+    server.use('/__dsh_boot__.js', clientModules.boot)
+    server.use('/plugins/', clientModules.modules)
 
     // Desligar o servidor quando a fibra morre (shutdown da CLI, HMR, erro).
     ctx.effect(() => () => {

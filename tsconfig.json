@@ -25,6 +25,7 @@
     { "path": "packages/web/dsh-api-gateway" },
     { "path": "packages/web/dsh-api-remotes" },
     { "path": "packages/web/dsh-client-connection" },
+    { "path": "packages/web/dsh-client-modules" },
     { "path": "apps/dsh" }
   ]
 }

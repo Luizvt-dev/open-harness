@@ -22,6 +22,8 @@
       "@open-harness/dsh-api-gateway": ["./packages/web/dsh-api-gateway/src/index.ts"],
       "@open-harness/dsh-api-remotes": ["./packages/web/dsh-api-remotes/src/index.ts"],
       "@open-harness/dsh-client-connection": ["./packages/web/dsh-client-connection/src/index.ts"],
+      "@open-harness/dsh-client-modules/browser": ["./packages/web/dsh-client-modules/src/browser.ts"],
+      "@open-harness/dsh-client-modules": ["./packages/web/dsh-client-modules/src/index.ts"],
       "@open-harness/dsh-session-format": ["./packages/session/dsh-session-format/src/index.ts"],
       "@open-harness/dsh-session": ["./packages/session/dsh-session/src/index.ts"],
       "@open-harness/dsh-session-persistence-jsonl": [

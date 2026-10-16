@@ -1,0 +1,26 @@
+{
+  "name": "@open-harness/dsh-client-modules",
+  "version": "0.1.0",
+  "description": "Módulos do navegador: descobre os `dsh.client` dos plugins, monta o `window.__DSH_BOOT__` e carrega os módulos de UI de forma lazy",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/dsh-host-webserver": "workspace:*"
+  }
+}
