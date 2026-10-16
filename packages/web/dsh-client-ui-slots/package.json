@@ -1,0 +1,27 @@
+{
+  "name": "@open-harness/dsh-client-ui-slots",
+  "version": "0.1.0",
+  "description": "Slots da UI do navegador: registo de extensões nomeadas e bindings React para o shell carregar os plugins",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "react-dom": "^18.3.1",
+    "@types/react-dom": "^18.3.1"
+  }
+}

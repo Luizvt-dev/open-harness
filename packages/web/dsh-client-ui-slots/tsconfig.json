@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // UI de navegador: esta é a única árvore do workspace que precisa de DOM
+    // e de JSX. Os pacotes Node continuam sem as duas (ver tsconfig.base.json).
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
+}
