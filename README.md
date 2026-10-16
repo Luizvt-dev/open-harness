@@ -144,11 +144,15 @@ packages/
     dsh-api-gateway/      # Gateway RPC, MuxConnection, createHttpRpc, RemoteError
     dsh-api-remotes/      # controllers: session, job, workspace, settings, stubs
     dsh-client-connection/# cliente do browser: MuxClient, HttpClient, createClient
+    dsh-client-modules/   # boot do manifesto, /plugins e loader lazy no browser
+    dsh-client-ui-slots/   # registo de slots (framework-agnóstico) + bindings React
 apps/
   dsh/                    # CLI `dsh`: perfis, overlay de runtime, modo offline
     bundles/headless/     # perfil sem UI (agente + tools)
     bundles/web/          # perfil com servidor web (agente + tools + webserver)
-      public/             # a UI servida: index.html, app.js, style.css
+      public/             # a UI servida: index.html (shell React) e style.css
+  web/
+    dsh-web-frontend/     # shell React: sessões, conversa, composer e slots
 ```
 
 ### O kernel (cordis)
@@ -228,9 +232,18 @@ processo**.
 
 ### Interface web (Fase 3)
 
-- **Sem bundler** — o `index.html` injecta um *import map* que resolve
-  `@open-harness/dsh-client-connection` e `@open-harness/dsh-api-gateway`
-  para os `dist` compilados, servidos pelo próprio host em `/client/<pacote>/`.
+- **Sem bundler** — o `index.html` injecta um *import map* construído a partir
+  da tabela `platform` do manifesto de boot: uma só fonte, servida pelo host,
+  que resolve os shims do React, o shell e os `dist` dos pacotes do workspace
+  em `/client/<pacote>/`.
+- **Shell React** — `apps/web/dsh-web-frontend` é a UI (sessões, conversa,
+  composer) montada em `#root`. Os UMD do React 18 entram por tags clássicas
+  (`window.React`/`window.ReactDOM`) e quatro shims ESM de `platform/`
+  expõem-nos como módulos; em `/platform/` só o que `platformFiles()` declara
+  é servível.
+- **Slots** — o shell desenha `sidebar.*`, `topbar.*`, `messages.after`,
+  `composer.*` e `chat.item.*`; os pacotes `ui-*` inscrevem-se por eles sem
+  o shell os conhecer.
 - **Entrada browser do gateway** — `dsh-api-gateway/browser` re-exporta só o
   protocolo e `RemoteError`; a entrada `.` puxa `node:crypto` e não corre no
   navegador (há asserção disto na suíte).
@@ -241,20 +254,21 @@ processo**.
 ## Testes
 
 `pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
-(**347 testes / 29 ficheiros**): kernel (cordis, loader), composição
+(**412 testes / 33 ficheiros**): kernel (cordis, loader), composição
 (profile-boot), arranque (app-boot), HMR, home-paths, LLM, provedores, sessão
 (formato, `Session`, persistência zstd), tools, loop, serviço `agent`, a
 **CLI `dsh`** (incluindo o teste de aceite da Fase 2 que corre
 `dsh --profile headless "crie um README"` de ponta a ponta) e a **aceitação
 da Fase 3** — `dsh web` a subir um servidor real, um cliente Node a falar com
 ele por WebSocket e HTTP/SSE, a UI e os módulos do cliente a serem servidos
-pelo cookie, e o histórico de conversa a voltar do disco, tudo sem navegador.
+pelo cookie, o histórico de conversa a voltar do disco, e o shell React
+(reducer, SSR, slots, `/shell` e `/platform/`), tudo sem navegador.
 
 ## Roadmap (Fases 3–6)
 
-- **Fase 3 — Superfície Web**: transporte **e UI inicial entregues**; falta o
-  carregador de módulos do browser (`dsh-client-modules`) e os plugins `ui-*`
-  do plano por cima desta base.
+- **Fase 3 — Superfície Web**: transporte, módulos do cliente, slots e **shell
+  React entregues**; falta a leva de plugins `ui-*` do plano por cima desta
+  base.
 - **Fase 4 — Shell Desktop**: Electron com fuses endurecidos, preload mínimo.
 - **Fase 5 — Runtime embarcado + Skills Office**: runtime incorporado e skills
   de documentos Office.

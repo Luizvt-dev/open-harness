@@ -67,7 +67,7 @@ export function platformFiles(): Map<string, PlatformFile> {
  * Tabela de módulos de plataforma para o manifesto de boot.
  *
  * São os especificadores que o shell e os plugins `ui-*` usam; o host mete-as
- * em `window.__DSH_BOOT__.platform` e o `shell.html` transforma-as no import
+ * em `window.__DSH_BOOT__.platform` e o `index.html` transforma-as no import
  * map da página. As entradas `@open-harness/*` do workspace são acrescentadas
  * pelo host (ficam em `web-plugin.ts`, ao lado das rotas que as servem).
  */

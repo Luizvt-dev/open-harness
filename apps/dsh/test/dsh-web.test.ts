@@ -186,14 +186,11 @@ describe('dsh web (aceitação)', () => {
       expect(page.status).toBe(200)
       expect(page.headers.get('content-type')).toContain('text/html')
       const html = await page.text()
-      // O import map é injectado pelo bootstrap (não é uma tag fixa).
+      // A entrada é o shell React: `#root` é o ponto de monta e todo o
+      // arranque (cookie, manifesto, import map, UMD) vive no próprio script
+      // da página — ver o teste do shell para a sequência completa.
+      expect(html).toContain('id="root"')
       expect(html).toContain("map.type = 'importmap'")
-      expect(html).toContain('/client/dsh-client-connection/index.js')
-      expect(html).toContain('/client/dsh-api-gateway/browser.js')
-
-      const app = await fetch(`${host.url}/app.js`, { headers: cookie })
-      expect(app.status).toBe(200)
-      expect(app.headers.get('content-type')).toContain('javascript')
 
       const styles = await fetch(`${host.url}/style.css`, { headers: cookie })
       expect(styles.status).toBe(200)
@@ -215,7 +212,7 @@ describe('dsh web (aceitação)', () => {
 
       // Pacote que não existe e falta de credencial continuam fechados.
       expect((await fetch(`${host.url}/client/outra-coisa/x.js`, { headers: cookie })).status).toBe(404)
-      expect((await fetch(`${host.url}/app.js`)).status).toBe(401)
+      expect((await fetch(`${host.url}/client/dsh-web-frontend/main.js`)).status).toBe(401)
       expect((await fetch(`${host.url}/client/dsh-api-gateway/browser.js`)).status).toBe(401)
     } finally {
       await host.shutdown()
@@ -244,7 +241,7 @@ describe('dsh web (aceitação)', () => {
       // seguinte), mas o contrato já está servido e validado pelo loader.
       expect(manifest.plugins).toEqual([])
       expect(manifest.combos).toEqual([])
-      // A tabela de plataforma é O mapa de import da UI: o `shell.html` lê-a
+      // A tabela de plataforma é O mapa de import da UI: o `index.html` lê-a
       // daqui em vez de a duplicar no HTML.
       expect(Object.keys(manifest.platform).sort()).toEqual(
         [
@@ -288,10 +285,10 @@ describe('dsh web (aceitação)', () => {
     try {
       const cookie = { cookie: `access_token=${host.token}` }
 
-      // A página do shell: todo o bootstrap é script clássico — não há tags
-      // fixas de import map nem de vendor, senão o preload scanner ia pedir
-      // activos antes de o cookie existir.
-      const page = await fetch(`${host.url}/shell.html`, { headers: cookie })
+      // A página de entrada é o shell: todo o bootstrap é script clássico —
+      // não há tags fixas de import map nem de vendor, senão o preload
+      // scanner ia pedir activos antes de o cookie existir.
+      const page = await fetch(`${host.url}/`, { headers: cookie })
       expect(page.status).toBe(200)
       expect(page.headers.get('content-type')).toContain('text/html')
       const html = await page.text()
@@ -349,7 +346,7 @@ describe('dsh web (aceitação)', () => {
       ).toBe(200)
 
       // Sem cookie continua fechado, como o resto da UI.
-      expect((await fetch(`${host.url}/shell.html`)).status).toBe(401)
+      expect((await fetch(`${host.url}/`)).status).toBe(401)
       expect((await fetch(`${host.url}/platform/react.umd.js`)).status).toBe(401)
       expect((await fetch(`${host.url}/client/dsh-web-frontend/main.js`)).status).toBe(401)
     } finally {

@@ -71,7 +71,7 @@ function clientModuleRoots(): Map<string, string> {
  *   serve os `dist` dos pacotes — incluindo o shell.
  *
  * A configuração do perfil (`config.platformModules`) entra por último e
- * sobrepõe o que quiser. O `shell.html` lê esta tabela e transforma-a no
+ * sobrepõe o que quiser. O `index.html` lê esta tabela e transforma-a no
  * import map do documento, por isso os valores nunca andam duplicados no HTML.
  */
 function platformModulesFor(config: WebServerConfig): PlatformModules {

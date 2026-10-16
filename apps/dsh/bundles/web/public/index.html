@@ -6,12 +6,27 @@
   <title>Open Harness</title>
 
   <!--
-    Bootstrap do token — tem de correr ANTES de qualquer activo carregar.
+    Bootstrap do shell React — tem de correr ANTES de qualquer activo carregar.
 
-    style.css, app.js e os módulos ES exigem autenticação, e um <link> ou
-    <script> não deixa definir headers: só o cookie, que é aqui que se grava.
-    Depois injecta-se o import map (a UI não tem bundler — carrega os módulos
-    compilados do próprio repositório) e só então se importa a app.
+    Ordem, e a razão de cada passo:
+
+      1. cookie do token — style.css, o manifesto e os módulos ES exigem
+         autenticação, e um <link>/<script> não deixa definir headers: só o
+         cookie, que é aqui que se grava.
+      2. <link> do CSS criado AQUI e não no HTML — o preload scanner do
+         browser descobre os activos do documento e dispara o pedido antes do
+         script correr; sem o cookie pronto, o CSS voltava como 401 (JSON) e
+         o browser recusava-o por MIME errado.
+      3. /__dsh_boot__.js — script clássico que grava `window.__DSH_BOOT__`,
+         incluindo a tabela de módulos de plataforma (React + workspace).
+      4. import map — construído a partir dessa tabela e injectado ANTES de
+         qualquer módulo ES: a UI não tem bundler, resolve tudo por URLs
+         servidas pelo host. É a ÚNICA fonte destas entradas — nada disto
+         está escrito à mão neste ficheiro.
+      5. React UMD — o React 18 só distribui CJS/UMD, por isso os UMD entram
+         por tags clássicas (`window.React`/`window.ReactDOM`) e os shims ESM
+         de /platform/ expõem-nos como módulos. react antes de react-dom.
+      6. import do shell — só aqui, com cookie, mapa e React prontos.
 
     Se não houver token, nada disto acontece e fica só o aviso essencial.
   -->
@@ -58,21 +73,42 @@
       css.href = '/style.css'
       document.head.appendChild(css)
 
-      var map = document.createElement('script')
-      map.type = 'importmap'
-      map.textContent = JSON.stringify({
-        imports: {
-          // `dsh-api-gateway` aponta para a entrada ./browser: a entrada `.`
-          // puxa node:crypto (mux) e não corre no navegador.
-          '@open-harness/dsh-client-connection': '/client/dsh-client-connection/index.js',
-          '@open-harness/dsh-api-gateway': '/client/dsh-api-gateway/browser.js',
-        },
-      })
-      document.head.appendChild(map)
+      /** Carrega um script clássico e só resolve quando ele executou. */
+      function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+          var tag = document.createElement('script')
+          tag.src = src
+          tag.onload = function () { resolve() }
+          tag.onerror = function () { reject(new Error('falha ao carregar ' + src)) }
+          document.head.appendChild(tag)
+        })
+      }
 
-      import('/app.js').catch(function (failure) {
-        showError('Falha ao carregar a interface: ' + (failure && failure.message ? failure.message : failure))
-      })
+      loadScript('/__dsh_boot__.js')
+        .then(function () {
+          var boot = window.__DSH_BOOT__
+          if (!boot || boot.version !== 1) throw new Error('manifesto de boot inválido')
+
+          // O import map é um só por documento e tem de nascer antes do
+          // primeiro módulo ES — por isso se injecta aqui, a partir da tabela
+          // do host, em vez de deixar o loader (que só corre dentro do shell)
+          // tentar repô-lo.
+          var table = boot.platform && Object.keys(boot.platform).length ? boot.platform : null
+          if (!table) throw new Error('tabela de módulos de plataforma vazia no boot')
+          var map = document.createElement('script')
+          map.type = 'importmap'
+          map.textContent = JSON.stringify({ imports: table })
+          document.head.appendChild(map)
+
+          // react tem de existir antes do react-dom: o UMD do react-dom lê
+          // `window.React` no momento da avaliação.
+          return loadScript('/platform/react.umd.js')
+            .then(function () { return loadScript('/platform/react-dom.umd.js') })
+        })
+        .then(function () { return import('/client/dsh-web-frontend/main.js') })
+        .catch(function (failure) {
+          showError('Falha ao carregar a interface: ' + (failure && failure.message ? failure.message : failure))
+        })
     })()
   </script>
 </head>
@@ -84,44 +120,7 @@
     </div>
   </div>
 
-  <div id="app" class="app" hidden>
-    <aside class="sidebar">
-      <header class="sidebar-top">
-        <span class="brand">Open Harness</span>
-        <button id="new-chat" class="icon" type="button" title="Nova sessão">＋</button>
-      </header>
-      <ul id="sessions" class="sessions"></ul>
-      <footer class="sidebar-foot">
-        <span id="conn" class="dot dot--off">desligado</span>
-        <span id="host-info" class="host-info"></span>
-      </footer>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-text">
-          <div id="title" class="title">Sem sessão</div>
-          <div id="context" class="context"></div>
-        </div>
-        <div id="stats" class="stats"></div>
-      </header>
-
-      <div id="messages" class="messages" aria-live="polite"></div>
-
-      <form id="composer" class="composer">
-        <textarea
-          id="input"
-          class="input"
-          rows="2"
-          placeholder="Peça alguma coisa ao agente… (Enter envia, Shift+Enter quebra linha)"
-        ></textarea>
-        <div class="actions">
-          <span id="status" class="status"></span>
-          <button id="cancel" class="button button--alert" type="button" hidden>Cancelar</button>
-          <button id="send" class="button button--primary" type="submit">Enviar</button>
-        </div>
-      </form>
-    </main>
-  </div>
+  <!-- Ponto de monta do shell React. Vazio até o módulo principal renderizar. -->
+  <div id="root"></div>
 </body>
 </html>
