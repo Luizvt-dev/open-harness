@@ -7,6 +7,10 @@ import { AGENT_SERVICE, type AgentService } from '@open-harness/dsh-agent'
 import { createGateway, createHttpRpc, createMuxHandler, type Gateway } from '@open-harness/dsh-api-gateway'
 import { createRemotes } from '@open-harness/dsh-api-remotes'
 import { createClientModuleRoutes, scanClientPlugins, type PlatformModules } from '@open-harness/dsh-client-modules'
+import {
+  platformFiles,
+  platformModules as reactPlatformModules,
+} from '@open-harness/dsh-web-frontend/platform'
 import { sendJson, serveStatic, WebServer } from '@open-harness/dsh-host-webserver'
 import { resolveDshHome } from '@open-harness/home-paths'
 import { createServiceHost } from './host.js'
@@ -39,13 +43,48 @@ function distDirOf(specifier: string): string {
  * `./browser` — a entrada `.` puxa `node:crypto` e não corre no navegador.
  * O mesmo vale para `dsh-client-modules`: o scan (`node:fs`) fica em `.` e o
  * loader lazy do navegador em `./browser`.
+ *
+ * `dsh-client-ui-slots` e `dsh-web-frontend` entram na mesma lista: o shell
+ * React é só mais um pacote do workspace com entrada no navegador — é o que
+ * permite ao `@open-harness/dsh-web-frontend` do import map e ao `main.js`
+ * carregado por URL serem o MESMO módulo (e portanto o mesmo `shellRegistry`).
  */
 function clientModuleRoots(): Map<string, string> {
   return new Map([
     ['dsh-client-connection', distDirOf('@open-harness/dsh-client-connection')],
     ['dsh-api-gateway', distDirOf('@open-harness/dsh-api-gateway')],
     ['dsh-client-modules', distDirOf('@open-harness/dsh-client-modules')],
+    ['dsh-client-ui-slots', distDirOf('@open-harness/dsh-client-ui-slots')],
+    ['dsh-web-frontend', distDirOf('@open-harness/dsh-web-frontend')],
   ])
+}
+
+/**
+ * Tabela de módulos de plataforma que o host publica no manifesto de boot.
+ *
+ * Duas metades, cada uma no sítio que lhe pertence:
+ *
+ * - os shims do React vêm do próprio `dsh-web-frontend` (é ele que sabe que
+ *   precisa de `react`, `react-dom`, `react-dom/client` e `react/jsx-runtime`
+ *   e que os serve em `/platform/`);
+ * - as entradas do workspace apontam para `/client/`, que é onde este plugin
+ *   serve os `dist` dos pacotes — incluindo o shell.
+ *
+ * A configuração do perfil (`config.platformModules`) entra por último e
+ * sobrepõe o que quiser. O `shell.html` lê esta tabela e transforma-a no
+ * import map do documento, por isso os valores nunca andam duplicados no HTML.
+ */
+function platformModulesFor(config: WebServerConfig): PlatformModules {
+  return {
+    ...reactPlatformModules(),
+    '@open-harness/dsh-client-connection': '/client/dsh-client-connection/index.js',
+    // A entrada `.` do gateway puxa `node:crypto`; no navegador usa-se `./browser`.
+    '@open-harness/dsh-api-gateway': '/client/dsh-api-gateway/browser.js',
+    '@open-harness/dsh-client-modules/browser': '/client/dsh-client-modules/browser.js',
+    '@open-harness/dsh-client-ui-slots': '/client/dsh-client-ui-slots/index.js',
+    '@open-harness/dsh-web-frontend': '/client/dsh-web-frontend/index.js',
+    ...(config.platformModules ?? {}),
+  }
 }
 
 /**
@@ -152,6 +191,38 @@ const plugin = {
     server.use('/api/remote/stream', rpc.stream)
     server.upgrade('/api/remote.mux', mux.attach)
 
+    // Shims ESM + vendor UMD do React (`/platform/<ficheiro>`).
+    //
+    // O mapa é por chave exacta: só o que `platformFiles()` declara é
+    // servível, portanto não há caminho para fora — e o `serveStatic` recusa
+    // travessia por cima disso. O vendor resolve-se no contexto do
+    // `dsh-web-frontend`, onde `react` é dependência directa (no pnpm estrito
+    // a app nem sequer o vê), daí os ficheiros saírem de lá e não daqui.
+    const platform = platformFiles()
+    server.use('/platform/', async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        sendJson(res, 405, { error: { code: 'method_not_allowed', message: 'GET only' } })
+        return
+      }
+      const pathname = new URL(req.url ?? '/', 'http://local').pathname
+      // A rota casa pelo caminho CRU, mas `..` normaliza-se no URL: se o
+      // caminho resultante já não está em `/platform/`, é tentativa de
+      // travessia e não há nada a servir. Por baixo, o mapa é por chave
+      // exacta e o `serveStatic` recusa sair do `root` — três barreiras.
+      const rest = pathname.startsWith('/platform/')
+        ? pathname.slice('/platform/'.length)
+        : null
+      const entry = rest === null ? undefined : platform.get(rest)
+      if (!entry || rest === null) {
+        sendJson(res, 404, { error: { code: 'not_found', message: `no platform file for ${pathname}` } })
+        return
+      }
+      const served = await serveStatic(req, res, entry.file, { root: entry.root, compressFrom: 1024 })
+      if (!served) {
+        sendJson(res, 404, { error: { code: 'not_found', message: `no such platform file: ${rest}` } })
+      }
+    })
+
     // Módulos ES do cliente para o navegador (`/client/<pacote>/<ficheiro>`).
     // A autenticação já aconteceu no servidor antes de qualquer rota; aqui só
     // se serve o `dist` dos dois pacotes, sem caminhos fora deles.
@@ -182,7 +253,7 @@ const plugin = {
     // os combos são gerados a partir da mesma lista.
     const clientModules = createClientModuleRoutes({
       plugins: scanClientPlugins(workspacePackageDirs()),
-      ...(config.platformModules ? { platform: config.platformModules } : {}),
+      platform: platformModulesFor(config),
     })
     server.use('/__dsh_boot__.js', clientModules.boot)
     server.use('/plugins/', clientModules.modules)

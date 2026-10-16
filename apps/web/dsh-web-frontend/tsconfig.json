@@ -1,0 +1,19 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // Shell de navegador: DOM e JSX, como o pacote de slots. O React vem de
+    // fora (módulo de plataforma partilhado), por isso não há nada a embutir.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  // `apps/web/dsh-web-frontend` → três níveis até à raiz: os pacotes web
+  // partilhados que o shell consome (o mais tarde, os `ui-*`).
+  "references": [
+    { "path": "../../../packages/web/dsh-client-connection" },
+    { "path": "../../../packages/web/dsh-client-modules" },
+    { "path": "../../../packages/web/dsh-client-ui-slots" }
+  ]
+}

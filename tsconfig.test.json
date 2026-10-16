@@ -6,8 +6,12 @@
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,
-    // Os testes incluem a origem dos pacotes de UI (via `paths`), que é TSX.
+    // Os testes incluem a origem dos pacotes de UI (via `paths`), que é TSX e
+    // usa tipos de DOM (`HTMLTextAreaElement`, `ref`, `scrollHeight`). Sem
+    // `lib` de DOM, o `tsc -p tsconfig.test.json` falhava no próprio fonte do
+    // shell — o `noEmit` faz com que isto seja só de tipos, sem efeitos.
     "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
       "@open-harness/cosmokit": ["./packages/kernel/cosmokit/src/index.ts"],
       "@open-harness/schemastery": ["./packages/kernel/schemastery/src/index.ts"],
@@ -27,6 +31,8 @@
       "@open-harness/dsh-client-modules/browser": ["./packages/web/dsh-client-modules/src/browser.ts"],
       "@open-harness/dsh-client-modules": ["./packages/web/dsh-client-modules/src/index.ts"],
       "@open-harness/dsh-client-ui-slots": ["./packages/web/dsh-client-ui-slots/src/index.ts"],
+      "@open-harness/dsh-web-frontend/platform": ["./apps/web/dsh-web-frontend/src/platform.ts"],
+      "@open-harness/dsh-web-frontend": ["./apps/web/dsh-web-frontend/src/index.ts"],
       "@open-harness/dsh-session-format": ["./packages/session/dsh-session-format/src/index.ts"],
       "@open-harness/dsh-session": ["./packages/session/dsh-session/src/index.ts"],
       "@open-harness/dsh-session-persistence-jsonl": [

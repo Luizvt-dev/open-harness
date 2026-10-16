@@ -2,3 +2,6 @@ packages:
   - 'packages/*'
   - 'packages/*/*'
   - 'apps/*'
+  # `apps/web/dsh-web-frontend`: a camada web fica um nível abaixo de `apps/`,
+  # como os pacotes já ficam em `packages/<área>/<nome>`.
+  - 'apps/*/*'

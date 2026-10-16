@@ -244,7 +244,30 @@ describe('dsh web (aceitação)', () => {
       // seguinte), mas o contrato já está servido e validado pelo loader.
       expect(manifest.plugins).toEqual([])
       expect(manifest.combos).toEqual([])
-      expect(typeof manifest.platform).toBe('object')
+      // A tabela de plataforma é O mapa de import da UI: o `shell.html` lê-a
+      // daqui em vez de a duplicar no HTML.
+      expect(Object.keys(manifest.platform).sort()).toEqual(
+        [
+          '@open-harness/dsh-api-gateway',
+          '@open-harness/dsh-client-connection',
+          '@open-harness/dsh-client-modules/browser',
+          '@open-harness/dsh-client-ui-slots',
+          '@open-harness/dsh-web-frontend',
+          'react',
+          'react-dom',
+          'react-dom/client',
+          'react/jsx-runtime',
+        ].sort(),
+      )
+      expect(manifest.platform['react']).toBe('/platform/react.js')
+      expect(manifest.platform['react-dom/client']).toBe('/platform/react-dom-client.js')
+      expect(manifest.platform['@open-harness/dsh-web-frontend']).toBe(
+        '/client/dsh-web-frontend/index.js',
+      )
+      // A entrada `.` do gateway puxa node:crypto; no navegador é `./browser`.
+      expect(manifest.platform['@open-harness/dsh-api-gateway']).toBe(
+        '/client/dsh-api-gateway/browser.js',
+      )
 
       // A entrada browser do loader é servida e não puxa builtins.
       const loader = await fetch(`${host.url}/client/dsh-client-modules/browser.js`, { headers: cookie })
@@ -255,6 +278,80 @@ describe('dsh web (aceitação)', () => {
 
       // Sem cookie continua fechado.
       expect((await fetch(`${host.url}/__dsh_boot__.js`)).status).toBe(401)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('serve o shell React e a plataforma do React ao navegador', async () => {
+    const host = await startOffline()
+    try {
+      const cookie = { cookie: `access_token=${host.token}` }
+
+      // A página do shell: todo o bootstrap é script clássico — não há tags
+      // fixas de import map nem de vendor, senão o preload scanner ia pedir
+      // activos antes de o cookie existir.
+      const page = await fetch(`${host.url}/shell.html`, { headers: cookie })
+      expect(page.status).toBe(200)
+      expect(page.headers.get('content-type')).toContain('text/html')
+      const html = await page.text()
+      expect(html).toContain("loadScript('/__dsh_boot__.js')")
+      expect(html).toContain("map.type = 'importmap'")
+      expect(html).toContain("loadScript('/platform/react.umd.js')")
+      expect(html).toContain("loadScript('/platform/react-dom.umd.js')")
+      expect(html).toContain("import('/client/dsh-web-frontend/main.js')")
+      expect(html).toContain('id="root"')
+      // O mapa vem do manifesto do host — nunca escrito à mão no HTML.
+      expect(html).not.toContain('<script type="importmap">')
+
+      // A plataforma: shims ESM + vendor UMD, todos com MIME de script.
+      const platformPaths = [
+        '/platform/react.js',
+        '/platform/react-dom.js',
+        '/platform/react-dom-client.js',
+        '/platform/react-jsx-runtime.js',
+        '/platform/react.umd.js',
+        '/platform/react-dom.umd.js',
+      ]
+      for (const path of platformPaths) {
+        const response = await fetch(`${host.url}${path}`, { headers: cookie })
+        expect(`${path} -> ${response.status}`).toBe(`${path} -> 200`)
+        expect(response.headers.get('content-type')).toContain('javascript')
+      }
+
+      // Os UMD são mesmo os minificados de produção do React.
+      const umd = await fetch(`${host.url}/platform/react.umd.js`, { headers: cookie })
+      expect(await umd.text()).toContain('react.production.min')
+
+      // Só o que o mapa declara: sem chaves soltas e sem subdirectórios.
+      expect(
+        (await fetch(`${host.url}/platform/nao-existe.js`, { headers: cookie })).status,
+      ).toBe(404)
+      expect(
+        (await fetch(`${host.url}/platform/pasta/react.js`, { headers: cookie })).status,
+      ).toBe(404)
+
+      // A entrada do shell é servida como qualquer outro módulo do workspace,
+      // e é também para a que o import map aponta — mesmo URL, mesma instância.
+      const shell = await fetch(`${host.url}/client/dsh-web-frontend/main.js`, { headers: cookie })
+      expect(shell.status).toBe(200)
+      expect(shell.headers.get('content-type')).toContain('javascript')
+      const shellSource = await shell.text()
+      expect(shellSource).toContain('react-dom/client')
+      expect(shellSource).not.toMatch(/from ['"]node:|import ['"]node:/)
+
+      const registry = await fetch(`${host.url}/client/dsh-web-frontend/registry.js`, {
+        headers: cookie,
+      })
+      expect(registry.status).toBe(200)
+      expect(
+        (await fetch(`${host.url}/client/dsh-client-ui-slots/index.js`, { headers: cookie })).status,
+      ).toBe(200)
+
+      // Sem cookie continua fechado, como o resto da UI.
+      expect((await fetch(`${host.url}/shell.html`)).status).toBe(401)
+      expect((await fetch(`${host.url}/platform/react.umd.js`)).status).toBe(401)
+      expect((await fetch(`${host.url}/client/dsh-web-frontend/main.js`)).status).toBe(401)
     } finally {
       await host.shutdown()
     }

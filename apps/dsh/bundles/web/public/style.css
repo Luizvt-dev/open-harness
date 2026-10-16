@@ -66,6 +66,18 @@ body {
 
 /* --- estrutura ----------------------------------------------------------- */
 
+/* Ponto de monta do shell React. Tem de repartir a altura da página pelo
+   filho, senão o `height: 100%` do `.app` resolvia contra `auto` e a grelha
+   perdia o ecrã inteiro. `:empty` esconde-o enquanto não há nada renderizado,
+   para o aviso de arranque ficar centrado em vez de empurrado para baixo. */
+#root {
+  height: 100%;
+}
+
+#root:empty {
+  display: none;
+}
+
 .app {
   height: 100%;
   display: grid;

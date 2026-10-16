@@ -22,6 +22,7 @@
     { "path": "../../packages/web/dsh-host-webserver" },
     { "path": "../../packages/web/dsh-api-gateway" },
     { "path": "../../packages/web/dsh-api-remotes" },
-    { "path": "../../packages/web/dsh-client-modules" }
+    { "path": "../../packages/web/dsh-client-modules" },
+    { "path": "../web/dsh-web-frontend" }
   ]
 }

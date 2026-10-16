@@ -1,0 +1,34 @@
+{
+  "name": "@open-harness/dsh-web-frontend",
+  "version": "0.1.0",
+  "description": "Shell da interface em React: layout, sessões, conversa e slots — compilado só por tsc, com React servido como módulo de plataforma partilhado",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./platform": {
+      "types": "./dist/platform.d.ts",
+      "default": "./dist/platform.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "platform"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@open-harness/dsh-client-connection": "workspace:*",
+    "@open-harness/dsh-client-modules": "workspace:*",
+    "@open-harness/dsh-client-ui-slots": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  }
+}
