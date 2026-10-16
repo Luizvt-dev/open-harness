@@ -237,10 +237,46 @@ describe('dsh web (aceitação)', () => {
         combos: Array<{ url: string; plugins: string[] }>
       }
       expect(manifest.version).toBe(1)
-      // Hoje nenhum pacote declara `dsh.client` (os `ui-*` chegam na leva
-      // seguinte), mas o contrato já está servido e validado pelo loader.
-      expect(manifest.plugins).toEqual([])
-      expect(manifest.combos).toEqual([])
+      // Os plugins `ui-*` do workspace: o scan encontra o `dsh.client` de cada
+      // package.json e ordena por `order` (tema primeiro, tool por último).
+      expect(manifest.plugins).toEqual([
+        {
+          id: 'ui-theme',
+          packageName: '@open-harness/dsh-client-ui-theme',
+          entry: '/plugins/ui-theme/index.js',
+          slots: ['sidebar.after'],
+          order: 10,
+        },
+        {
+          id: 'ui-conversation',
+          packageName: '@open-harness/dsh-client-ui-conversation',
+          entry: '/plugins/ui-conversation/index.js',
+          slots: ['chat.item.assistant'],
+          order: 150,
+        },
+        {
+          id: 'ui-chat',
+          packageName: '@open-harness/dsh-client-ui-chat',
+          entry: '/plugins/ui-chat/index.js',
+          slots: ['chat.item.user', 'chat.item.error'],
+          order: 160,
+        },
+        {
+          id: 'ui-tool',
+          packageName: '@open-harness/dsh-client-ui-tool',
+          entry: '/plugins/ui-tool/index.js',
+          slots: ['chat.item.tool'],
+          order: 200,
+        },
+      ])
+      // Um combo com todos, pela mesma ordem — é o que o shell importa.
+      expect(manifest.combos).toEqual([
+        {
+          name: 'default',
+          url: '/plugins/__combo__/default.js',
+          plugins: ['ui-theme', 'ui-conversation', 'ui-chat', 'ui-tool'],
+        },
+      ])
       // A tabela de plataforma é O mapa de import da UI: o `index.html` lê-a
       // daqui em vez de a duplicar no HTML.
       expect(Object.keys(manifest.platform).sort()).toEqual(
@@ -275,6 +311,51 @@ describe('dsh web (aceitação)', () => {
 
       // Sem cookie continua fechado.
       expect((await fetch(`${host.url}/__dsh_boot__.js`)).status).toBe(401)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('serve as entradas dos plugins de UI e o combo do manifesto', async () => {
+    const host = await startOffline()
+    try {
+      const cookie = { cookie: `access_token=${host.token}` }
+      const boot = await fetch(`${host.url}/__dsh_boot__.js`, { headers: cookie })
+      const manifest = JSON.parse(
+        (await boot.text()).slice('window.__DSH_BOOT__ = '.length).replace(/;\n$/, ''),
+      ) as {
+        plugins: Array<{ id: string; entry: string }>
+        combos: Array<{ name: string; url: string; plugins: string[] }>
+      }
+
+      const combo = manifest.combos[0]
+      expect(combo?.name).toBe('default')
+      expect(combo?.plugins).toEqual(manifest.plugins.map((plugin) => plugin.id))
+      expect(manifest.plugins.length).toBeGreaterThan(0)
+
+      // Cada entrada é servida, é JS e não puxa builtins (corre no navegador).
+      for (const plugin of manifest.plugins) {
+        const response = await fetch(`${host.url}${plugin.entry}`, { headers: cookie })
+        expect(response.status).toBe(200)
+        expect(response.headers.get('content-type')).toContain('javascript')
+        const source = await response.text()
+        expect(source).toContain('export function install')
+        expect(source).not.toMatch(/from ['"]node:|import ['"]node:/)
+      }
+
+      // O combo não é um bundle: é um módulo que importa as entradas pela
+      // ordem de carregamento, numa só ida ao servidor.
+      const comboResponse = await fetch(`${host.url}${combo!.url}`, { headers: cookie })
+      expect(comboResponse.status).toBe(200)
+      expect(await comboResponse.text()).toBe(
+        `// combo default: gerado pelo host\n${manifest.plugins
+          .map((plugin) => `import ${JSON.stringify(plugin.entry)};`)
+          .join('\n')}\n`,
+      )
+
+      // Sem cookie nada disto se serve.
+      expect((await fetch(`${host.url}${combo!.url}`)).status).toBe(401)
+      expect((await fetch(`${host.url}/plugins/ui-theme/index.js`)).status).toBe(401)
     } finally {
       await host.shutdown()
     }

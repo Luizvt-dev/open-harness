@@ -146,6 +146,10 @@ packages/
     dsh-client-connection/# cliente do browser: MuxClient, HttpClient, createClient
     dsh-client-modules/   # boot do manifesto, /plugins e loader lazy no browser
     dsh-client-ui-slots/   # registo de slots (framework-agnóstico) + bindings React
+    dsh-client-ui-theme/   # plugin ui-theme: tokens claro/escuro + comutador
+    dsh-client-ui-conversation/ # plugin ui-conversation: bolha do agente + copiar
+    dsh-client-ui-chat/    # plugin ui-chat: bolhas do utilizador e de erro + copiar
+    dsh-client-ui-tool/    # plugin ui-tool: linha de tool + copiar da saída
 apps/
   dsh/                    # CLI `dsh`: perfis, overlay de runtime, modo offline
     bundles/headless/     # perfil sem UI (agente + tools)
@@ -244,6 +248,11 @@ processo**.
 - **Slots** — o shell desenha `sidebar.*`, `topbar.*`, `messages.after`,
   `composer.*` e `chat.item.*`; os pacotes `ui-*` inscrevem-se por eles sem
   o shell os conhecer.
+- **Plugins `ui-*`** — cada pacote declara `dsh.client` no `package.json`
+  (entrada, slots, ordem); o host descobre-os no arranque, serve as entradas
+  em `/plugins/<id>/`, gera o combo `/plugins/__combo__/default.js` e o shell
+  importa-o depois de montar. Vão nesta leva: `ui-theme` (tema claro/escuro),
+  `ui-conversation`, `ui-chat` e `ui-tool` (as três bolhas com "copiar").
 - **Entrada browser do gateway** — `dsh-api-gateway/browser` re-exporta só o
   protocolo e `RemoteError`; a entrada `.` puxa `node:crypto` e não corre no
   navegador (há asserção disto na suíte).
@@ -254,21 +263,25 @@ processo**.
 ## Testes
 
 `pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
-(**412 testes / 33 ficheiros**): kernel (cordis, loader), composição
+(**446 testes / 36 ficheiros**): kernel (cordis, loader), composição
 (profile-boot), arranque (app-boot), HMR, home-paths, LLM, provedores, sessão
 (formato, `Session`, persistência zstd), tools, loop, serviço `agent`, a
 **CLI `dsh`** (incluindo o teste de aceite da Fase 2 que corre
 `dsh --profile headless "crie um README"` de ponta a ponta) e a **aceitação
 da Fase 3** — `dsh web` a subir um servidor real, um cliente Node a falar com
 ele por WebSocket e HTTP/SSE, a UI e os módulos do cliente a serem servidos
-pelo cookie, o histórico de conversa a voltar do disco, e o shell React
-(reducer, SSR, slots, `/shell` e `/platform/`), tudo sem navegador.
+pelo cookie, o histórico de conversa a voltar do disco, o shell React
+(reducer, SSR, slots, `/` e `/platform/`) e os quatro plugins `ui-*`
+(scan do `dsh.client`, entradas em `/plugins/`, combo, paridade do item por
+omissão e a acção de copiar), tudo sem navegador.
 
 ## Roadmap (Fases 3–6)
 
-- **Fase 3 — Superfície Web**: transporte, módulos do cliente, slots e **shell
-  React entregues**; falta a leva de plugins `ui-*` do plano por cima desta
-  base.
+- **Fase 3 — Superfície Web**: transporte, módulos do cliente, slots, shell
+  React e a **primeira leva de plugins `ui-*` entregue** (tema, conversa,
+  chat, tool). Fica a restante leva do plano por cima desta base —
+  `ui-layout`, `ui-renderer`, `ui-session`, `ui-input-trigger`,
+  `ui-commands`, `ui-sidebar` e `ui-settings*`.
 - **Fase 4 — Shell Desktop**: Electron com fuses endurecidos, preload mínimo.
 - **Fase 5 — Runtime embarcado + Skills Office**: runtime incorporado e skills
   de documentos Office.

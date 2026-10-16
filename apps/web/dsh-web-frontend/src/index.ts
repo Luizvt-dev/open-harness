@@ -24,6 +24,7 @@ export {
 export type { Conversation, Message } from './conversation.js'
 
 export { ConversationItem, ConversationView, MessageBubble, ToolRow } from './conversation-view.js'
+export { CopyButton, copyText } from './copy-button.js'
 export { Sidebar, connectionLabel } from './sidebar.js'
 export { Topbar } from './topbar.js'
 export { Composer } from './composer.js'

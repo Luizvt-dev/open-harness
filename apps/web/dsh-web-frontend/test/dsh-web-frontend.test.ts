@@ -21,15 +21,17 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, afterEach, vi } from 'vitest'
 import { SlotProvider, SlotRegistry } from '@open-harness/dsh-client-ui-slots'
 import {
   ConversationView,
+  CopyButton,
   DEFAULT_ITEM_ID,
   Shell,
   SLOTS,
   appendUser,
   applyEvent,
+  copyText,
   emptyConversation,
   fromHistory,
   installPlugins,
@@ -501,5 +503,87 @@ describe('plataforma do shell', () => {
       .filter((name) => name !== 'platform.ts')
       .filter((name) => /from ['"]node:|import ['"]node:/.test(readFileSync(join(dir, name), 'utf8')))
     expect(offenders).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 6. Botão de copiar (material dos slots `chat.item.*`)
+// ---------------------------------------------------------------------------
+
+describe('CopyButton', () => {
+  it('renderiza em repouso, sem browser e sem effects', () => {
+    const html = renderToStaticMarkup(
+      createElement(CopyButton, { className: 'msg-copy', label: 'copiar', text: 'x' }),
+    )
+    expect(html).toContain('class="msg-copy"')
+    expect(html).toContain('type="button"')
+    expect(html).toContain('copiar')
+    // O estado só aparece depois do clique, por isso em SSR é sempre o rótulo.
+    expect(html).not.toContain('--done')
+  })
+})
+
+describe('copyText', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** Navigator sem clipboard: força a via legada. */
+  const stubNavigator = () => vi.stubGlobal('navigator', { userAgent: 'falso' })
+
+  /** Documento mínimo que só serve para o `execCommand('copy')`. */
+  function stubDocument(result: boolean): void {
+    vi.stubGlobal('document', {
+      createElement: () => ({
+        value: '',
+        style: {} as Record<string, string>,
+        setAttribute: () => undefined,
+        select: () => undefined,
+        remove: () => undefined,
+      }),
+      body: { appendChild: (node: unknown) => node },
+      execCommand: () => result,
+    } as unknown as Document)
+  }
+
+  it('sem documento e sem clipboard devolve false (o botão mostra o falhanço)', async () => {
+    expect(typeof document).toBe('undefined')
+    expect(await copyText('x')).toBe(false)
+  })
+
+  it('cai para o execCommand quando não há clipboard assíncrono', async () => {
+    stubNavigator()
+    const commands: string[] = []
+    vi.stubGlobal('document', {
+      createElement: () => ({
+        value: '',
+        style: {} as Record<string, string>,
+        setAttribute: () => undefined,
+        select: () => undefined,
+        remove: () => undefined,
+      }),
+      body: { appendChild: (node: unknown) => node },
+      execCommand: (command: string) => {
+        commands.push(command)
+        return true
+      },
+    } as unknown as Document)
+
+    expect(await copyText('texto')).toBe(true)
+    expect(commands).toEqual(['copy'])
+  })
+
+  it('devolve false quando o execCommand também recusa', async () => {
+    stubNavigator()
+    stubDocument(false)
+    expect(await copyText('texto')).toBe(false)
+  })
+
+  it('devolve false quando o clipboard assíncrono recusa e não há documento', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'falso',
+      clipboard: { writeText: async () => Promise.reject(new Error('sem foco')) },
+    })
+    expect(await copyText('texto')).toBe(false)
   })
 })

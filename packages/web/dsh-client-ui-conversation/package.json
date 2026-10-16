@@ -1,0 +1,36 @@
+{
+  "name": "@open-harness/dsh-client-ui-conversation",
+  "version": "0.1.0",
+  "description": "Bolha do agente na conversa: mesmo desenho do shell mais copiar a resposta — plugin de UI descoberto pelo campo dsh.client",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dsh": {
+    "client": {
+      "entry": "./dist/index.js",
+      "slots": ["chat.item.assistant"],
+      "order": 150
+    }
+  },
+  "dependencies": {
+    "@open-harness/dsh-client-ui-slots": "workspace:*",
+    "@open-harness/dsh-web-frontend": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

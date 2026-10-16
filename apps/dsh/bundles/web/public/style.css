@@ -303,6 +303,42 @@ body {
   word-break: break-word;
 }
 
+/* Afordância dos slots `chat.item.*`. O shell não a desenha nos seus itens
+   por omissão (a vanilla não tinha), mas o estilo é do shell: um plugin que
+   acrescente "copiar" tem de parecer parte desta mesma UI. */
+.msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.msg-copy {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.msg-copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.msg-copy--done {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.msg-copy--fail {
+  color: var(--fail);
+  border-color: var(--fail);
+}
+
 /* --- linhas de tool ------------------------------------------------------- */
 
 .ferramenta {

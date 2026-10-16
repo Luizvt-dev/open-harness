@@ -27,6 +27,10 @@
     { "path": "packages/web/dsh-client-connection" },
     { "path": "packages/web/dsh-client-modules" },
     { "path": "packages/web/dsh-client-ui-slots" },
+    { "path": "packages/web/dsh-client-ui-chat" },
+    { "path": "packages/web/dsh-client-ui-conversation" },
+    { "path": "packages/web/dsh-client-ui-theme" },
+    { "path": "packages/web/dsh-client-ui-tool" },
     { "path": "apps/web/dsh-web-frontend" },
     { "path": "apps/dsh" }
   ]

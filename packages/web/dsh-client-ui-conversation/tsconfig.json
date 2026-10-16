@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // Plugin de navegador: DOM e JSX, como o shell que ele estende.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../dsh-client-ui-slots" },
+    { "path": "../../../apps/web/dsh-web-frontend" }
+  ]
+}

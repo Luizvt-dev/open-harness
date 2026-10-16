@@ -202,9 +202,21 @@ importers:
       '@open-harness/dsh-client-modules':
         specifier: workspace:*
         version: link:../../packages/web/dsh-client-modules
+      '@open-harness/dsh-client-ui-chat':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-ui-chat
+      '@open-harness/dsh-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-ui-conversation
       '@open-harness/dsh-client-ui-slots':
         specifier: workspace:*
         version: link:../../packages/web/dsh-client-ui-slots
+      '@open-harness/dsh-client-ui-theme':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-ui-theme
+      '@open-harness/dsh-client-ui-tool':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-ui-tool
       '@open-harness/dsh-host-webserver':
         specifier: workspace:*
         version: link:../../packages/web/dsh-host-webserver
@@ -455,8 +467,96 @@ importers:
         specifier: workspace:*
         version: link:../dsh-host-webserver
 
+  packages/web/dsh-client-ui-chat:
+    dependencies:
+      '@open-harness/dsh-client-ui-slots':
+        specifier: workspace:*
+        version: link:../dsh-client-ui-slots
+      '@open-harness/dsh-web-frontend':
+        specifier: workspace:*
+        version: link:../../../apps/web/dsh-web-frontend
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
+  packages/web/dsh-client-ui-conversation:
+    dependencies:
+      '@open-harness/dsh-client-ui-slots':
+        specifier: workspace:*
+        version: link:../dsh-client-ui-slots
+      '@open-harness/dsh-web-frontend':
+        specifier: workspace:*
+        version: link:../../../apps/web/dsh-web-frontend
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
   packages/web/dsh-client-ui-slots:
     dependencies:
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
+  packages/web/dsh-client-ui-theme:
+    dependencies:
+      '@open-harness/dsh-client-ui-slots':
+        specifier: workspace:*
+        version: link:../dsh-client-ui-slots
+      '@open-harness/dsh-web-frontend':
+        specifier: workspace:*
+        version: link:../../../apps/web/dsh-web-frontend
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
+  packages/web/dsh-client-ui-tool:
+    dependencies:
+      '@open-harness/dsh-client-ui-slots':
+        specifier: workspace:*
+        version: link:../dsh-client-ui-slots
+      '@open-harness/dsh-web-frontend':
+        specifier: workspace:*
+        version: link:../../../apps/web/dsh-web-frontend
       react:
         specifier: ^18.3.1
         version: 18.3.1
