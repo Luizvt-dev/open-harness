@@ -196,6 +196,9 @@ importers:
       '@open-harness/dsh-api-remotes':
         specifier: workspace:*
         version: link:../../packages/web/dsh-api-remotes
+      '@open-harness/dsh-client-connection':
+        specifier: workspace:*
+        version: link:../../packages/web/dsh-client-connection
       '@open-harness/dsh-host-webserver':
         specifier: workspace:*
         version: link:../../packages/web/dsh-host-webserver
@@ -229,10 +232,6 @@ importers:
       yaml:
         specifier: ^2.8.1
         version: 2.9.1
-    devDependencies:
-      '@open-harness/dsh-client-connection':
-        specifier: workspace:*
-        version: link:../../packages/web/dsh-client-connection
 
   packages/agent/dsh-agent:
     dependencies:

@@ -26,6 +26,7 @@
     "@open-harness/dsh-agent-loop": "workspace:*",
     "@open-harness/dsh-api-gateway": "workspace:*",
     "@open-harness/dsh-api-remotes": "workspace:*",
+    "@open-harness/dsh-client-connection": "workspace:*",
     "@open-harness/dsh-llm": "workspace:*",
     "@open-harness/dsh-provider": "workspace:*",
     "@open-harness/dsh-session": "workspace:*",
@@ -37,8 +38,5 @@
     "@open-harness/home-paths": "workspace:*",
     "@open-harness/profile-boot": "workspace:*",
     "yaml": "^2.8.1"
-  },
-  "devDependencies": {
-    "@open-harness/dsh-client-connection": "workspace:*"
   }
 }

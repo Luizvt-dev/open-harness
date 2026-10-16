@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Harness</title>
+
+  <!--
+    Bootstrap do token — tem de correr ANTES de qualquer activo carregar.
+
+    style.css, app.js e os módulos ES exigem autenticação, e um <link> ou
+    <script> não deixa definir headers: só o cookie, que é aqui que se grava.
+    Depois injecta-se o import map (a UI não tem bundler — carrega os módulos
+    compilados do próprio repositório) e só então se importa a app.
+
+    Se não houver token, nada disto acontece e fica só o aviso essencial.
+  -->
+  <script>
+    (function () {
+      function showError(msg) {
+        function show() {
+          var box = document.getElementById('boot-error')
+          if (!box) return
+          box.hidden = false
+          if (msg) box.querySelector('p').textContent = msg
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show)
+        else show()
+      }
+      window.__DSH_SHOW_ERROR__ = showError
+
+      var params = new URLSearchParams(location.search)
+      var fromUrl = params.get('access_token')
+      var token = fromUrl || sessionStorage.getItem('dsh_token') || ''
+      if (fromUrl) {
+        // Guarda e tira da barra de endereço: não fica no histórico.
+        sessionStorage.setItem('dsh_token', fromUrl)
+        params.delete('access_token')
+        var rest = params.toString()
+        history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''))
+      }
+      if (!token) token = window.prompt('Token de acesso do host (a linha "token …" do dsh web):') || ''
+      window.__DSH_TOKEN__ = token
+
+      if (!token) {
+        showError('Sem token de acesso. Reabra a UI pela URL que o dsh web imprimiu, com ?access_token=…')
+        return
+      }
+
+      document.cookie = 'access_token=' + encodeURIComponent(token) + '; Path=/; SameSite=Strict'
+
+      // O <link> nasce AQUI e não no HTML: o preload scanner do browser
+      // descobre os activos do documento e dispara o pedido antes do script
+      // correr — sem o cookie pronto, o CSS voltava como 401 (JSON) e o
+      // browser recusava-o por MIME errado, deixando a página por estilizar.
+      var css = document.createElement('link')
+      css.rel = 'stylesheet'
+      css.href = '/style.css'
+      document.head.appendChild(css)
+
+      var map = document.createElement('script')
+      map.type = 'importmap'
+      map.textContent = JSON.stringify({
+        imports: {
+          // `dsh-api-gateway` aponta para a entrada ./browser: a entrada `.`
+          // puxa node:crypto (mux) e não corre no navegador.
+          '@open-harness/dsh-client-connection': '/client/dsh-client-connection/index.js',
+          '@open-harness/dsh-api-gateway': '/client/dsh-api-gateway/browser.js',
+        },
+      })
+      document.head.appendChild(map)
+
+      import('/app.js').catch(function (failure) {
+        showError('Falha ao carregar a interface: ' + (failure && failure.message ? failure.message : failure))
+      })
+    })()
+  </script>
+</head>
+<body>
+  <div id="boot-error" class="boot-error" hidden>
+    <div>
+      <h1>Sem acesso</h1>
+      <p></p>
+    </div>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <header class="sidebar-top">
+        <span class="brand">Open Harness</span>
+        <button id="new-chat" class="icon" type="button" title="Nova sessão">＋</button>
+      </header>
+      <ul id="sessions" class="sessions"></ul>
+      <footer class="sidebar-foot">
+        <span id="conn" class="dot dot--off">desligado</span>
+        <span id="host-info" class="host-info"></span>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-text">
+          <div id="title" class="title">Sem sessão</div>
+          <div id="context" class="context"></div>
+        </div>
+        <div id="stats" class="stats"></div>
+      </header>
+
+      <div id="messages" class="messages" aria-live="polite"></div>
+
+      <form id="composer" class="composer">
+        <textarea
+          id="input"
+          class="input"
+          rows="2"
+          placeholder="Peça alguma coisa ao agente… (Enter envia, Shift+Enter quebra linha)"
+        ></textarea>
+        <div class="actions">
+          <span id="status" class="status"></span>
+          <button id="cancel" class="button button--alert" type="button" hidden>Cancelar</button>
+          <button id="send" class="button button--primary" type="submit">Enviar</button>
+        </div>
+      </form>
+    </main>
+  </div>
+</body>
+</html>

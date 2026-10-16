@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Context } from '@open-harness/cordis'
 import { AGENT_SERVICE, type AgentService } from '@open-harness/dsh-agent'
 import { createGateway, createHttpRpc, createMuxHandler, type Gateway } from '@open-harness/dsh-api-gateway'
 import { createRemotes } from '@open-harness/dsh-api-remotes'
-import { WebServer } from '@open-harness/dsh-host-webserver'
+import { sendJson, serveStatic, WebServer } from '@open-harness/dsh-host-webserver'
 import { resolveDshHome } from '@open-harness/home-paths'
 import { createServiceHost } from './host.js'
 import { readVersion } from './profile.js'
@@ -17,6 +19,30 @@ export const DEFAULT_WEB_HOST = '127.0.0.1'
 
 /** Porta por omissão. */
 export const DEFAULT_WEB_PORT = 3080
+
+/**
+ * Directório `dist` de um pacote do workspace.
+ *
+ * A entrada `.` resolve para `dist/index.js`, por isso o `dirname` é a pasta
+ * de módulos ES que o navegador pode carregar tal como o Node os consome.
+ */
+function distDirOf(specifier: string): string {
+  return dirname(fileURLToPath(import.meta.resolve(specifier)))
+}
+
+/**
+ * Pacotes servidos em `/client/<pasta>/<ficheiro>`.
+ *
+ * A UI não tem bundler (nem precisa): carrega os módulos compilados do
+ * próprio repositório via import map. `dsh-api-gateway` aponta para a entrada
+ * `./browser` — a entrada `.` puxa `node:crypto` e não corre no navegador.
+ */
+function clientModuleRoots(): Map<string, string> {
+  return new Map([
+    ['dsh-client-connection', distDirOf('@open-harness/dsh-client-connection')],
+    ['dsh-api-gateway', distDirOf('@open-harness/dsh-api-gateway')],
+  ])
+}
 
 /** Configuração da linha `webserver` (bundle/perfil/overlay). */
 export interface WebServerConfig {
@@ -100,6 +126,31 @@ const plugin = {
     server.use('/api/remote', rpc.unary)
     server.use('/api/remote/stream', rpc.stream)
     server.upgrade('/api/remote.mux', mux.attach)
+
+    // Módulos ES do cliente para o navegador (`/client/<pacote>/<ficheiro>`).
+    // A autenticação já aconteceu no servidor antes de qualquer rota; aqui só
+    // se serve o `dist` dos dois pacotes, sem caminhos fora deles.
+    const roots = clientModuleRoots()
+    server.use('/client/', async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        sendJson(res, 405, { error: { code: 'method_not_allowed', message: 'GET only' } })
+        return
+      }
+      const pathname = new URL(req.url ?? '/', 'http://local').pathname
+      const rest = pathname.slice('/client/'.length)
+      const slash = rest.indexOf('/')
+      const pkg = slash > 0 ? rest.slice(0, slash) : ''
+      const file = slash > 0 ? rest.slice(slash) : ''
+      const root = pkg ? roots.get(pkg) : undefined
+      if (!root || !file) {
+        sendJson(res, 404, { error: { code: 'not_found', message: `no client module for ${pathname}` } })
+        return
+      }
+      const served = await serveStatic(req, res, file, { root, compressFrom: 1024 })
+      if (!served) {
+        sendJson(res, 404, { error: { code: 'not_found', message: `no such module: ${pkg}${file}` } })
+      }
+    })
 
     // Desligar o servidor quando a fibra morre (shutdown da CLI, HMR, erro).
     ctx.effect(() => () => {

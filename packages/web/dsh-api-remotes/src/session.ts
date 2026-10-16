@@ -31,6 +31,11 @@ export function sessionRemote(host: AgentHost): RemoteSpec {
       get: {
         handler: async (params: { sessionId: string }) => sessionInfo(requireSession(host, params?.sessionId)),
       },
+      history: {
+        handler: async (params: { sessionId: string }) => ({
+          entries: requireSession(host, params?.sessionId).history(),
+        }),
+      },
       remove: {
         handler: async (params: { sessionId: string }) => {
           requireSession(host, params?.sessionId)

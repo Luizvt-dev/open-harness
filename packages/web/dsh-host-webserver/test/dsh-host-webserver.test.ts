@@ -93,6 +93,16 @@ describe('auth por token', () => {
     expect((await rawGet(server, `/api/health?access_token=${TOKEN}`)).status).toBe(200)
   })
 
+  it('aceita o cookie access_token — módulos ES não mandam headers nem query', async () => {
+    const server = await start({ staticDir: staticDir() })
+    const res = await rawGet(server, '/app.js', { cookie: `access_token=${TOKEN}` })
+    expect(res.status).toBe(200)
+
+    // Um cookie errado vale tanto como nenhum.
+    expect((await rawGet(server, '/app.js', { cookie: 'access_token=errado' })).status).toBe(401)
+    expect((await rawGet(server, '/app.js', { cookie: 'outro=x' })).status).toBe(401)
+  })
+
   it('recusa token errado mesmo com o prefixo correcto', async () => {
     const server = await start()
     expect((await rawGet(server, `/api/health?access_token=${TOKEN}x`)).status).toBe(401)
@@ -214,11 +224,37 @@ describe('upgrade WebSocket', () => {
     })
   }
 
+  /** Rejeita se a promessa não resolver a tempo — falha claro, não pendura. */
+  function withDeadline<T>(promise: Promise<T>, ms = 5_000): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`sem mensagem em ${ms} ms`)), ms)
+      timer.unref()
+      promise.then(
+        (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        (error) => {
+          clearTimeout(timer)
+          reject(error)
+        },
+      )
+    })
+  }
+
   it('entrega o socket ao anexador do caminho montado', async () => {
     const server = await start()
     const inbox: string[] = []
+    let receive: (text: string) => void = () => undefined
+    const arrived = new Promise<string>((resolve) => {
+      receive = resolve
+    })
     server.upgrade('/api/remote.mux', (socket) => {
-      socket.on('message', (data: unknown) => inbox.push(String(data)))
+      socket.on('message', (data: unknown) => {
+        const text = String(data)
+        inbox.push(text)
+        receive(text)
+      })
       socket.send('ola do host')
     })
 
@@ -226,8 +262,10 @@ describe('upgrade WebSocket', () => {
     const message = await new Promise<string>((resolve) => ws.once('message', (data) => resolve(String(data))))
     expect(message).toBe('ola do host')
 
+    // Espera pelo evento (com prazo) e não por um sono fixo: 20 ms não
+    // bastavam quando a suíte inteira corre em paralelo e o teste piscava.
     ws.send('ola do cliente')
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(await withDeadline(arrived)).toBe('ola do cliente')
     expect(inbox).toEqual(['ola do cliente'])
     ws.close()
   })

@@ -32,6 +32,19 @@ export interface TurnSummary {
   stoppedByLimit: boolean
 }
 
+/**
+ * Uma entrada da conversa, pronta a mostrar no ecrã.
+ *
+ * O ficheiro de sessão guarda os registos cruos do loop (mensagens, tools,
+ * checkpoints); isto é a projecção deles para a UI: só o que faz parte da
+ * conversa, com o `tool_use` e o `tool_result` já fundidos numa entrada só —
+ * a UI não precisa de saber como o formato persiste as tools.
+ */
+export type HistoryEntry =
+  | { kind: 'user'; text: string; at: number }
+  | { kind: 'assistant'; text: string; at: number }
+  | { kind: 'tool'; id: string; name: string; at: number; ok?: boolean; output?: string }
+
 /** Opções para criar uma sessão. */
 export interface CreateSessionOptions {
   /** Directório de trabalho da sessão. Default: o do host. */
@@ -61,6 +74,14 @@ export interface SessionHandle {
   run(text: string, onEvent: (event: AgentEvent) => void, signal?: AbortSignal): Promise<TurnSummary>
   /** Pede cancelamento do turno em curso (no-op se não houver nenhum). */
   cancel(): void
+  /**
+   * Histórico da conversa persistido, pronto a mostrar.
+   *
+   * É o que permite reabrir a UI sem perder a transcrição: a sessão vive no
+   * disco e aqui devolve-se já no formato do ecrã (vazio se ainda não houver
+   * turnos).
+   */
+  history(): HistoryEntry[]
 }
 
 /** Dados de uma sessão, prontos a serializar. */

@@ -1,0 +1,444 @@
+/* ---------------------------------------------------------------------------
+   Interface do Open Harness
+
+   Tema escuro, grelha de duas colunas (barra lateral + conversa) e o mínimo
+   de cores possível: o conteúdo é a conversa, a chrome só emoldura.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --bg: #0e1116;
+  --bg-soft: #141922;
+  --bg-raised: #1a212c;
+  --line: #232c3a;
+  --text: #dce3ed;
+  --text-dim: #8b97a8;
+  --accent: #4c8dff;
+  --ok: #3fb96f;
+  --fail: #e5534b;
+  --warn: #d9a441;
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--font);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* --- aviso de arranque (sem token / falha de módulos) --------------------- */
+
+.boot-error {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.boot-error div {
+  max-width: 520px;
+}
+
+.boot-error h1 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.boot-error p {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* --- estrutura ----------------------------------------------------------- */
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* --- barra lateral -------------------------------------------------------- */
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sessions {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.session:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.session--active {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.session--active .session-name::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+.session-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-remove {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+}
+
+.session:hover .session-remove {
+  opacity: 1;
+}
+
+.session-remove:hover {
+  color: var(--fail);
+}
+
+.sidebar-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.dot::before {
+  content: "●";
+  margin-right: 6px;
+  font-size: 10px;
+}
+
+.dot--on::before {
+  color: var(--ok);
+}
+
+.dot--wait::before {
+  color: var(--warn);
+}
+
+.dot--off::before {
+  color: var(--fail);
+}
+
+.host-info {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- cabeçalho da conversa ------------------------------------------------ */
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  font-weight: 600;
+}
+
+.context {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* --- conversa ------------------------------------------------------------- */
+
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg {
+  max-width: 760px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+}
+
+.msg--user {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-raised);
+}
+
+.msg--assistant {
+  border-left: 3px solid var(--ok);
+}
+
+.msg--error {
+  border-left: 3px solid var(--fail);
+  background: #231519;
+}
+
+.msg-role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.msg-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- linhas de tool ------------------------------------------------------- */
+
+.ferramenta {
+  max-width: 760px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+
+.ferramenta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  list-style: none;
+}
+
+.ferramenta-head::-webkit-details-marker {
+  display: none;
+}
+
+.ferramenta-name {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.ferramenta-state {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ferramenta--running {
+  border-color: var(--warn);
+}
+
+.ferramenta--running .ferramenta-state {
+  color: var(--warn);
+}
+
+.ferramenta--ok .ferramenta-state {
+  color: var(--ok);
+}
+
+.ferramenta--fail {
+  border-color: var(--fail);
+}
+
+.ferramenta--fail .ferramenta-state {
+  color: var(--fail);
+}
+
+.ferramenta-output {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  font: 12.5px/1.45 var(--mono);
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* --- composição ----------------------------------------------------------- */
+
+.composer {
+  border-top: 1px solid var(--line);
+  padding: 12px 20px 16px;
+  background: var(--bg-soft);
+}
+
+.input {
+  width: 100%;
+  resize: none;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.status {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.status--error {
+  color: var(--fail);
+}
+
+.button {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08101f;
+  font-weight: 600;
+}
+
+.button--primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button--alert:hover {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+
+/* --- ecrãs estreitos ------------------------------------------------------ */
+
+@media (max-width: 760px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+}

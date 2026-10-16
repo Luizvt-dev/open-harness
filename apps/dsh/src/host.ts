@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   AgentHost,
   CreateSessionOptions,
+  HistoryEntry,
   SessionHandle,
   TurnSummary,
 } from '@open-harness/dsh-api-remotes'
@@ -93,7 +94,9 @@ class ServiceSession implements SessionHandle {
     this.cwd = service.session.header.cwd
     this.model = service.model
     this.modelRef = service.modelRef
-    this.title = title?.trim() || `Sessão ${this.id.slice(0, 8)}`
+    // Sem título, o nome legível vem do id — mas `session-` é prefixo fixo
+    // (sempre os mesmos 8 caracteres), por isso guarda-se é a parte única.
+    this.title = title?.trim() || `Sessão ${this.id.replace(/^session-/, '').slice(0, 8)}`
   }
 
   async run(
@@ -131,4 +134,44 @@ class ServiceSession implements SessionHandle {
   cancel(): void {
     this.active?.abort()
   }
+
+  history(): HistoryEntry[] {
+    const entries: HistoryEntry[] = []
+    // `tool_use` e `tool_result` chegam como dois registos; aqui fundem-se
+    // numa entrada só, para a UI ver uma chamada — não dois fragmentos.
+    const tools = new Map<string, Extract<HistoryEntry, { kind: 'tool' }>>()
+    for (const record of this.service.session.records) {
+      if (record.type === 'message') {
+        const text = blockText(record.content)
+        if (!text) continue
+        if (record.role === 'user') entries.push({ kind: 'user', text, at: record.timestamp })
+        else if (record.role === 'assistant') entries.push({ kind: 'assistant', text, at: record.timestamp })
+        // 'system' é contexto do agente, não conversa — fica de fora.
+      } else if (record.type === 'tool_use') {
+        const entry = {
+          kind: 'tool' as const,
+          id: record.toolUseId ?? '',
+          name: record.name ?? 'tool',
+          at: record.timestamp,
+        }
+        entries.push(entry)
+        if (entry.id) tools.set(entry.id, entry)
+      } else if (record.type === 'tool_result') {
+        const entry = tools.get(record.toolUseId ?? '')
+        if (!entry) continue
+        entry.ok = !record.isError
+        entry.output = typeof record.output === 'string' ? record.output : JSON.stringify(record.output ?? '')
+      }
+    }
+    return entries
+  }
+}
+
+/** Texto de uma mensagem: só os blocos de texto, colados pela ordem. */
+function blockText(blocks: readonly { type: string; text?: string }[] | undefined): string {
+  if (!blocks) return ''
+  return blocks
+    .filter((block) => block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text ?? '')
+    .join('')
 }

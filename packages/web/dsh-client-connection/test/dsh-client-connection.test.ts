@@ -182,12 +182,17 @@ describe('cliente mux (WebSocket)', () => {
   })
 
   it('fala o heartbeat — a ligação vive com pongs regulares', async () => {
-    const harness = await startHarness({ heartbeatMs: 25 })
+    // Margem realista: o host só fecha depois de `heartbeatMs × missedPings(3)`
+    // sem pong — com 25 ms isso eram 75 ms de janela, e sob a carga da suíte
+    // inteira o pong atrasava-se e o host (por direito) fechava. 250 ms dá
+    // 750 ms de tolerância; a prova continua a mesma: sem pongs, ao fim de
+    // 1 s a ligação já teria caído.
+    const harness = await startHarness({ heartbeatMs: 250 })
     const client = createClient({ url: harness.url, token: harness.token })
     try {
       await client.whenOpen()
-      // 6 intervalos de 25ms: sem resposta aos pings o host teria fechado.
-      await sleep(160)
+      // 4 intervalos de 250 ms: sem resposta aos pings o host teria fechado.
+      await sleep(1000)
       expect(client.state).toBe('open')
       expect(await client.call('demo.add', { a: 4, b: 5 })).toBe(9)
     } finally {

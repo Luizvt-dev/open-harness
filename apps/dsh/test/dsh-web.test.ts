@@ -175,6 +175,84 @@ describe('dsh web (aceitação)', () => {
     }
   })
 
+  it('serve a interface e os módulos do cliente ao navegador', async () => {
+    const host = await startOffline()
+    try {
+      // O navegador carrega os activos sem headers: o cookie é o que os
+      // autentica (o index.html grava-o logo na primeira carga).
+      const cookie = { cookie: `access_token=${host.token}` }
+
+      const page = await fetch(`${host.url}/`, { headers: cookie })
+      expect(page.status).toBe(200)
+      expect(page.headers.get('content-type')).toContain('text/html')
+      const html = await page.text()
+      // O import map é injectado pelo bootstrap (não é uma tag fixa).
+      expect(html).toContain("map.type = 'importmap'")
+      expect(html).toContain('/client/dsh-client-connection/index.js')
+      expect(html).toContain('/client/dsh-api-gateway/browser.js')
+
+      const app = await fetch(`${host.url}/app.js`, { headers: cookie })
+      expect(app.status).toBe(200)
+      expect(app.headers.get('content-type')).toContain('javascript')
+
+      const styles = await fetch(`${host.url}/style.css`, { headers: cookie })
+      expect(styles.status).toBe(200)
+      expect(styles.headers.get('content-type')).toContain('text/css')
+
+      // Os módulos que o import map resolve: o cliente do host e a entrada
+      // browser do gateway — nunca a entrada `.`, que puxa node:crypto.
+      const clientModule = await fetch(`${host.url}/client/dsh-client-connection/index.js`, { headers: cookie })
+      expect(clientModule.status).toBe(200)
+      expect(await clientModule.text()).toContain('./mux.js')
+
+      const gatewayModule = await fetch(`${host.url}/client/dsh-api-gateway/browser.js`, { headers: cookie })
+      expect(gatewayModule.status).toBe(200)
+      const gatewaySource = await gatewayModule.text()
+      expect(gatewaySource).toContain('./types.js')
+      // Nenhum import estático de builtin — é isso que rebentava no browser
+      // (a comentário pode mencioná-los à vontade; o que não pode é importá-los).
+      expect(gatewaySource).not.toMatch(/from ['"]node:|import ['"]node:/)
+
+      // Pacote que não existe e falta de credencial continuam fechados.
+      expect((await fetch(`${host.url}/client/outra-coisa/x.js`, { headers: cookie })).status).toBe(404)
+      expect((await fetch(`${host.url}/app.js`)).status).toBe(401)
+      expect((await fetch(`${host.url}/client/dsh-api-gateway/browser.js`)).status).toBe(401)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('reconstrói a conversa pelo histórico persistido', async () => {
+    const host = await startOffline()
+    const client = createClient({ url: host.url, token: host.token })
+    try {
+      await client.whenOpen()
+      const session = await client.call<{ id: string; title: string }>('session.create', {})
+      // Título por omissão: a parte única do id, não o prefixo fixo
+      // (`session-` são exactamente 8 caracteres — ver ServiceSession).
+      expect(session.title).toMatch(/^Sessão [0-9a-f]{8}$/)
+      await runTurn(client, session.id, 'primeira pergunta')
+
+      const history = await client.call<{
+        entries: Array<{ kind: string; text?: string }>
+      }>('session.history', { sessionId: session.id })
+
+      const kinds = history.entries.map((entry) => entry.kind)
+      expect(kinds).toContain('user')
+      expect(kinds).toContain('assistant')
+      expect(history.entries.find((entry) => entry.kind === 'user')?.text).toBe('primeira pergunta')
+      expect(history.entries.find((entry) => entry.kind === 'assistant')?.text).toContain('sem rede')
+
+      // Id desconhecido continua a falhar com o mesmo código do resto.
+      await expect(client.call('session.history', { sessionId: 'nope' })).rejects.toMatchObject({
+        code: 'invalid_params',
+      })
+    } finally {
+      client.close()
+      await host.shutdown()
+    }
+  })
+
   it('cada sessão é um agente próprio, com o mesmo modelo', async () => {
     const host = await startOffline()
     const client = createClient({ url: host.url, token: host.token })
@@ -228,6 +306,9 @@ describe('dsh web (CLI)', () => {
     const token = /token\s+(\S+)/.exec(lines.join('\n'))?.[1] ?? ''
     expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
     expect(token).toHaveLength(32)
+
+    // A linha do browser vem pronta a clicar, com o token na query.
+    expect(lines.join('\n')).toMatch(/browser\s+http:\/\/127\.0\.0\.1:\d+\/\?access_token=\S+/)
 
     const health = await fetch(`${url}/api/health`, { headers: { authorization: `Bearer ${token}` } })
     expect(health.status).toBe(200)

@@ -11,6 +11,7 @@ import {
   type AgentEvent,
   type AgentHost,
   type CreateSessionOptions,
+  type HistoryEntry,
   type SessionHandle,
   type TurnSummary,
 } from '@open-harness/dsh-api-remotes'
@@ -61,6 +62,14 @@ class FakeSession implements SessionHandle {
 
   cancel(): void {
     this.cancelled = true
+  }
+
+  history(): HistoryEntry[] {
+    return [
+      { kind: 'user', text: 'olá', at: 1 },
+      { kind: 'assistant', text: 'ola mundo', at: 2 },
+      { kind: 'tool', id: 't1', name: 'bash', at: 3, ok: true, output: 'ok' },
+    ]
   }
 }
 
@@ -131,6 +140,7 @@ describe('métodos registados', () => {
       'job.run',
       'session.create',
       'session.get',
+      'session.history',
       'session.list',
       'session.remove',
       'settings.get',
@@ -170,6 +180,22 @@ describe('remote session', () => {
       code: 'invalid_params',
     })
     await expect(gateway.call('session.get', {}, ctx())).rejects.toMatchObject({ code: 'invalid_params' })
+  })
+
+  it('devolve o histórico da sessão no formato do ecrã', async () => {
+    const host = new FakeHost()
+    const gateway = gatewayWith(host, '/repo', '/home/u')
+    const created = (await gateway.call('session.create', {}, ctx())) as { id: string }
+
+    const history = (await gateway.call('session.history', { sessionId: created.id }, ctx())) as {
+      entries: Array<{ kind: string; text?: string }>
+    }
+    expect(history.entries.map((entry) => entry.kind)).toEqual(['user', 'assistant', 'tool'])
+    expect(history.entries[0]).toMatchObject({ kind: 'user', text: 'olá' })
+
+    await expect(gateway.call('session.history', { sessionId: 'nope' }, ctx())).rejects.toMatchObject({
+      code: 'invalid_params',
+    })
   })
 })
 

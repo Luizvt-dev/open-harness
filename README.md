@@ -12,8 +12,9 @@ perfis por camadas de patch YAML**, com implementação própria, escopo npm
 > **Escopo desta entrega (v0.1.0):** Fases 0, 1 e 2 do plano (fundação,
 > kernel de perfis/composição e núcleo do agente com a CLI `dsh`), o
 > **sistema de provedores múltiplos** (registry + catálogo + adapters por
-> protocolo) e a **Fase 3 em transporte**: servidor web local, gateway RPC e
-> cliente de ligação. A UI da superfície web segue no roadmap.
+> protocolo) e a **Fase 3**: servidor web local, gateway RPC, cliente de
+> ligação e a **UI web inicial** — sessões, conversa em stream com tools e
+> histórico persistido. Os plugins de UI do browser seguem no roadmap.
 
 ## Estado
 
@@ -23,7 +24,7 @@ perfis por camadas de patch YAML**, com implementação própria, escopo npm
 | 1 — Perfis e composição (bundles, patch YAML, HMR) | ✅ concluída |
 | 2 — Núcleo do agente (LLM, tools, loop, sessão, CLI) | ✅ concluída |
 | 2+ — Provedores múltiplos (registry, catálogo, adapters) | ✅ concluída |
-| 3 — Superfície Web + transporte | 🟡 transporte concluído (UI em curso) |
+| 3 — Superfície Web + transporte | 🟡 UI inicial entregue (sem plugins de UI) |
 | 4 — Shell Desktop (Electron) | ⏳ planeada |
 | 5 — Runtime embarcado + Skills Office | ⏳ planeada |
 | 6 — Paridade avançada e operação | ⏳ planeada |
@@ -46,7 +47,7 @@ pnpm build        # tsc -b de todos os pacotes (composite)
 ```
 
 `pnpm check` é a porta de entrada da CI: `tsc -b` → `tsc -p tsconfig.test.json`
-→ `vitest run`. Neste momento corre **343 testes em 29 ficheiros**.
+→ `vitest run`. Neste momento corre **347 testes em 29 ficheiros**.
 
 ## Uso
 
@@ -66,10 +67,22 @@ As chaves vão no ambiente (`DEEPSEEK_API_KEY`, `OPENAI_API_KEY`,
 ### Servidor web `dsh web`
 
 ```bash
-pnpm dsh web                       # http://127.0.0.1:3080 com token gerado
+pnpm dsh web                       # sobe a interface em http://127.0.0.1:3080
 pnpm dsh web --port 0              # porta livre (efémera)
-pnpm dsh web --offline --port 0    # sem rede, para testar o transporte
+pnpm dsh web --offline --port 0    # sem rede, para testar sem API key
 ```
+
+A CLI imprime quatro linhas: a URL base (`dsh web em …`), a **linha
+`browser`** com o token na query — é essa que se clica para abrir a UI já
+autenticada —, o `token` separado (para clientes programáticos) e o perfil
+arrancado.
+
+A interface (HTML/CSS/JS sem bundler, em `apps/dsh/bundles/web/public/`)
+liga-se ao host pelo mesmo WebSocket do protocolo: barra lateral de sessões,
+conversa com o texto a chegar em *stream*, linhas de tool com input/output e
+cancelamento do turno. Na primeira carga o token vai para o `sessionStorage`
+e para um cookie (`SameSite=Strict`), porque os módulos ES e o CSS não
+conseguem mandar headers próprios; a URL fica limpa na barra de endereço.
 
 O comando sobe o perfil `web` (bundle `apps/dsh/bundles/web`): servidor HTTP
 local com **auth por token obrigatório**, estático com SPA fallback, e um
@@ -135,6 +148,7 @@ apps/
   dsh/                    # CLI `dsh`: perfis, overlay de runtime, modo offline
     bundles/headless/     # perfil sem UI (agente + tools)
     bundles/web/          # perfil com servidor web (agente + tools + webserver)
+      public/             # a UI servida: index.html, app.js, style.css
 ```
 
 ### O kernel (cordis)
@@ -206,26 +220,41 @@ processo**.
   (`/api/remote/stream`, eventos `open|data|end|error`) com os mesmos
   códigos de erro do WebSocket.
 - **Auth** — token obrigatório em todas as rotas, por `Authorization:
-  Bearer` ou `?access_token=` (necessário no handshake WS), comparado com
-  `timingSafeEqual`.
+  Bearer`, `?access_token=` (necessário no handshake WS) ou cookie
+  `access_token` (o único que um `<script type="module">` ou um CSS consegue
+  levar), comparado com `timingSafeEqual`.
 - **Sessões** — cada sessão web é um agente irmão: mesmo modelo, system
   prompt, adapter e tools do perfil, mas histórico e ficheiro próprios.
+
+### Interface web (Fase 3)
+
+- **Sem bundler** — o `index.html` injecta um *import map* que resolve
+  `@open-harness/dsh-client-connection` e `@open-harness/dsh-api-gateway`
+  para os `dist` compilados, servidos pelo próprio host em `/client/<pacote>/`.
+- **Entrada browser do gateway** — `dsh-api-gateway/browser` re-exporta só o
+  protocolo e `RemoteError`; a entrada `.` puxa `node:crypto` e não corre no
+  navegador (há asserção disto na suíte).
+- **`session.history`** — o host projeta os registos persistidos da sessão
+  para o ecrã (`user`/`assistant`/`tool`, com `tool_use` + `tool_result` já
+  fundidos), para o refresh não perder a conversa.
 
 ## Testes
 
 `pnpm check` corre typecheck de build, typecheck dos testes e a suite inteira
-(**343 testes / 29 ficheiros**): kernel (cordis, loader), composição
+(**347 testes / 29 ficheiros**): kernel (cordis, loader), composição
 (profile-boot), arranque (app-boot), HMR, home-paths, LLM, provedores, sessão
 (formato, `Session`, persistência zstd), tools, loop, serviço `agent`, a
 **CLI `dsh`** (incluindo o teste de aceite da Fase 2 que corre
 `dsh --profile headless "crie um README"` de ponta a ponta) e a **aceitação
-da Fase 3** — `dsh web` a subir um servidor real e um cliente Node a falar
-com ele por WebSocket e HTTP/SSE, sem navegador.
+da Fase 3** — `dsh web` a subir um servidor real, um cliente Node a falar com
+ele por WebSocket e HTTP/SSE, a UI e os módulos do cliente a serem servidos
+pelo cookie, e o histórico de conversa a voltar do disco, tudo sem navegador.
 
 ## Roadmap (Fases 3–6)
 
-- **Fase 3 — Superfície Web**: UI web do harness por cima do transporte já
-  entregue.
+- **Fase 3 — Superfície Web**: transporte **e UI inicial entregues**; falta o
+  carregador de módulos do browser (`dsh-client-modules`) e os plugins `ui-*`
+  do plano por cima desta base.
 - **Fase 4 — Shell Desktop**: Electron com fuses endurecidos, preload mínimo.
 - **Fase 5 — Runtime embarcado + Skills Office**: runtime incorporado e skills
   de documentos Office.

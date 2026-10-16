@@ -132,8 +132,11 @@ export async function runWeb(options: WebOptions = {}): Promise<void> {
   const handle = await startWeb(options)
   const log = options.log ?? ((line: string) => console.error(line))
   log(`dsh web em ${handle.url}`)
-  log(`token    ${handle.token}`)
-  log(`perfil   ${handle.profile} (${handle.profileDir})`)
+  // URL pronta a clicar: a UI guarda o token na primeira carga, por isso não
+  // é preciso colá-lo em lado nenhum depois de abrir.
+  log(`browser    ${handle.server.url}`)
+  log(`token      ${handle.token}`)
+  log(`perfil     ${handle.profile} (${handle.profileDir})`)
   log('prima Ctrl+C para parar')
   try {
     await waitForAbort(options.signal)
